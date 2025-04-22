@@ -20,9 +20,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = supabase.auth.currentUser;
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Supabase Auth Demo',
-      home: AuthPage(),
+      home: user == null ? const AuthPage() : const UploadPage(),
     );
   }
 }
@@ -36,6 +38,7 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   final emailController    = TextEditingController();
   final passwordController = TextEditingController();
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -44,48 +47,49 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  Future<void> signUp() async {
+  Future<void> _signUp() async {
+    setState(() => _loading = true);
     try {
       final res = await supabase.auth.signUp(
-        email: emailController.text,
+        email: emailController.text.trim(),
         password: passwordController.text,
       );
       if (res.user != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign‑up successful!')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Sign‑up successful!')));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign‑up failed')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Sign‑up failed')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error during sign‑up: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error during sign‑up: $e')));
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
-  Future<void> login() async {
+  Future<void> _login() async {
+    setState(() => _loading = true);
     try {
       final res = await supabase.auth.signInWithPassword(
-        email: emailController.text,
+        email: emailController.text.trim(),
         password: passwordController.text,
       );
       if (res.user != null) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const UploadPage()),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login failed')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Login failed')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error during login: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error during login: $e')));
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
@@ -95,38 +99,25 @@ class _AuthPageState extends State<AuthPage> {
       appBar: AppBar(title: const Text('Login / Sign Up')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: login,  child: const Text('Log In')),
-            ElevatedButton(onPressed: signUp, child: const Text('Sign Up')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// You can remove WelcomePage if unused, or translate its text similarly
-class WelcomePage extends StatelessWidget {
-  const WelcomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = supabase.auth.currentUser;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Welcome')),
-      body: Center(
-        child: Text('Hello, ${user?.email ?? "User"}!'),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  TextField(
+                    controller: passwordController,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: _login,  child: const Text('Log In')),
+                  const SizedBox(height: 8),
+                  ElevatedButton(onPressed: _signUp, child: const Text('Sign Up')),
+                ],
+              ),
       ),
     );
   }
