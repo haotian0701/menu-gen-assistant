@@ -1,4 +1,4 @@
-# 🍽️ Menu Generation Assistant
+# 🍽 Menu Generation Assistant
 
 A Flutter + Supabase project that allows users to:
 
