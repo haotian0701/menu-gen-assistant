@@ -1,23 +1,30 @@
-// lib/upload_page.dart
-
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' show basename;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class UploadPage extends StatefulWidget {
-  const UploadPage({super.key});
+import 'generating_page.dart';
+
+class UploadImagePage extends StatefulWidget {
+  const UploadImagePage({Key? key}) : super(key: key);
 
   @override
-  State<UploadPage> createState() => _UploadPageState();
+  State<UploadImagePage> createState() => _UploadImagePageState();
 }
 
-class _UploadPageState extends State<UploadPage> {
+class _UploadImagePageState extends State<UploadImagePage> {
+  final _client = Supabase.instance.client;
+
   Uint8List? _fileBytes;
   String? _uploadedUrl;
   bool _loading = false;
-  final _client = Supabase.instance.client;
+
+  // dropdown options
+  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
+  final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
+  String _selectedMeal = 'dinner';
+  String _selectedGoal = 'normal';
 
   Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
@@ -26,36 +33,26 @@ class _UploadPageState extends State<UploadPage> {
     );
     if (result == null || result.files.isEmpty) return;
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _uploadedUrl = null;
+    });
 
     final file     = result.files.first;
     final bytes    = file.bytes!;
     final origName = basename(file.name);
-    // Prepend a timestamp to guarantee uniqueness
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final filename  = '${timestamp}_$origName';
-    final path      = 'public/$filename';
+    final filename = '${DateTime.now().millisecondsSinceEpoch}_$origName';
+    final path     = 'public/$filename';
 
     try {
-      // Upload the uniquely‑named file
+      // Upload to Supabase Storage
       await _client.storage.from('food-images').uploadBinary(path, bytes);
       final url = _client.storage.from('food-images').getPublicUrl(path);
-
-      // Insert placeholder menu record
-      await _client.from('menus').insert({
-        'user_id':   _client.auth.currentUser!.id,
-        'image_url': url,
-        'menu_text': 'Generating…',
-      });
 
       setState(() {
         _fileBytes   = bytes;
         _uploadedUrl = url;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Upload successful!')),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Upload failed: $e')),
@@ -65,31 +62,78 @@ class _UploadPageState extends State<UploadPage> {
     }
   }
 
+  void _onGeneratePressed() {
+    if (_uploadedUrl == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GeneratingPage(
+          imageUrl:    _uploadedUrl!,
+          mealType:    _selectedMeal,
+          dietaryGoal: _selectedGoal,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload Food Image')),
+      appBar: AppBar(title: const Text('Upload & Generate Recipe')),
       body: Center(
-        child: _loading
-          ? const CircularProgressIndicator()
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_fileBytes != null)
-                  Image.memory(_fileBytes!, height: 200),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              ElevatedButton(
+                onPressed: _loading ? null : _pickAndUpload,
+                child: _loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Select & Upload Image'),
+              ),
+
+              if (_fileBytes != null) ...[
+                const SizedBox(height: 16),
+                Image.memory(_fileBytes!, height: 200),
+                const SizedBox(height: 8),
+                SelectableText(
+                  _uploadedUrl!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+
+              if (_uploadedUrl != null) ...[
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Meal: '),
+                    DropdownButton<String>(
+                      value: _selectedMeal,
+                      items: _mealTypes
+                          .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedMeal = v!),
+                    ),
+                    const SizedBox(width: 32),
+                    const Text('Goal: '),
+                    DropdownButton<String>(
+                      value: _selectedGoal,
+                      items: _dietaryGoals
+                          .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedGoal = v!),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _pickAndUpload,
-                  child: const Text('Select & Upload Image'),
+                  onPressed: _onGeneratePressed,
+                  child: const Text('Generate Recipe'),
                 ),
-                if (_uploadedUrl != null) ...[
-                  const SizedBox(height: 12),
-                  Text('Uploaded to:', style: Theme.of(context).textTheme.bodySmall),
-                  Text(_uploadedUrl!, style: Theme.of(context).textTheme.bodySmall),
-                ],
               ],
-            ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,13 +1,20 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// 导入我们拆分的三个页面
 import 'upload_page.dart';
+import 'generating_page.dart';
+import 'recipe_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://krvnkbsxrcwatmspecbw.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE',
   );
 
   runApp(const MyApp());
@@ -16,21 +23,22 @@ void main() async {
 final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Supabase Auth Demo',
-      home: user == null ? const AuthPage() : const UploadPage(),
+      title: 'Menu Generator',
+      theme: ThemeData(primarySwatch: Colors.teal),
+      home: user == null ? const AuthPage() : const UploadImagePage(),
     );
   }
 }
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  const AuthPage({Key? key}) : super(key: key);
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
@@ -55,15 +63,18 @@ class _AuthPageState extends State<AuthPage> {
         password: passwordController.text,
       );
       if (res.user != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Sign‑up successful!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign-up successful!')),
+        );
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Sign‑up failed')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign-up failed')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error during sign‑up: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error during sign-up: $e')),
+      );
     } finally {
       setState(() => _loading = false);
     }
@@ -79,15 +90,17 @@ class _AuthPageState extends State<AuthPage> {
       if (res.user != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const UploadPage()),
+          MaterialPageRoute(builder: (_) => const UploadImagePage()),
         );
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Login failed')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login failed')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error during login: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error during login: $e')),
+      );
     } finally {
       setState(() => _loading = false);
     }
@@ -113,9 +126,15 @@ class _AuthPageState extends State<AuthPage> {
                     obscureText: true,
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _login,  child: const Text('Log In')),
+                  ElevatedButton(
+                    onPressed: _login,
+                    child: const Text('Log In'),
+                  ),
                   const SizedBox(height: 8),
-                  ElevatedButton(onPressed: _signUp, child: const Text('Sign Up')),
+                  ElevatedButton(
+                    onPressed: _signUp,
+                    child: const Text('Sign Up'),
+                  ),
                 ],
               ),
       ),

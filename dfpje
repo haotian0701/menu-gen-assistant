@@ -1,0 +1,17 @@
+[33mcommit 39c06fa2a89ff3d2c01ba03b78e9504d03bf585f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Haotian Sun <haotiansun491@gmail.com>
+Date:   Tue Apr 22 14:56:27 2025 +0200
+
+    Initial commit - Flutter auth and upload implemented
+
+[33mcommit c3e0f4ad208f902491ca1ac843efcc3d5383efe9[m
+Author: Haotian Sun <haotiansun491@gmail.com>
+Date:   Tue Apr 22 14:48:59 2025 +0200
+
+    Add backend/ and supabase/ directories
+
+[33mcommit 3d9eeed5bc1f1e77db7aa61d01faeb3ea7b993b2[m
+Author: Haotian Sun <haotiansun491@gmail.com>
+Date:   Tue Apr 22 14:38:18 2025 +0200
+
+    Initial commit - Flutter auth and upload implemented
