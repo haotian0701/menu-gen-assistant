@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'recipe_page.dart';
 
@@ -28,33 +29,56 @@ class _GeneratingPageState extends State<GeneratingPage> {
   }
 
   Future<void> _generate() async {
-    final uri = Uri.parse('http://localhost:8000/generate_recipe');
-    final resp = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'image_url':    widget.imageUrl,
-        'meal_type':    widget.mealType,
-        'dietary_goal': widget.dietaryGoal,
-      }),
-    );
+    final supabase = Supabase.instance.client;
+    final accessToken = supabase.auth.currentSession?.accessToken;
 
-    if (resp.statusCode == 200) {
-      final data   = jsonDecode(resp.body);
-      final labels = List<String>.from(data['labels']);
-      final recipe = data['recipe'] as String;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => RecipePage(
-            imageUrl: widget.imageUrl,
-            labels:   labels,
-            recipe:   recipe,
-          ),
-        ),
-      );
-    } else {
+    if (accessToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Generation error: ${resp.body}')),
+        const SnackBar(content: Text('Please log in first.')),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final uri = Uri.parse('https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe');
+
+    try {
+      final resp = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'image_url': widget.imageUrl,
+          'meal_type': widget.mealType,
+          'dietary_goal': widget.dietaryGoal,
+        }),
+      );
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final labels = List<String>.from(data['labels']);
+        final recipe = data['recipe'] as String;
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => RecipePage(
+              imageUrl: widget.imageUrl,
+              labels: labels,
+              recipe: recipe,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Generation error: ${resp.body}')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
       );
       Navigator.of(context).pop();
     }
