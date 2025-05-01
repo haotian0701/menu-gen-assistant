@@ -49,17 +49,43 @@ serve(async (req) => {
     const imageBlob = await imageResp.blob();
     const base64Image = await blobToBase64(imageBlob);
 
-    // Step 2: Call Gemini Vision API
+    // Call Gemini Vision
     const visionPayload = {
       contents: [
         {
           parts: [
             {
-              text:
-                "List the food items you see in this image in JSON format:\n{\"food_items\": [\"item1\", \"item2\"]}\nPlease ONLY return a valid JSON object with no extra text.",
+              text: `
+    Input: An image containing one or more grocery items.
+    
+    Instructions:
+    
+    1. Detect Grocery Items: Identify all distinct grocery items visible in the image.
+    2. Classify Items: For each detected item, provide a general classification label (e.g., "Apple", "Milk Carton").
+    3. Determine Bounding Boxes: Provide bounding box coordinates in normalized format (x_min, y_min, x_max, y_max).
+    4. Output Format: Return results in valid JSON, no extra text.
+    
+    {
+      "detected_items": [
+        {
+          "item_label": "string",
+          "bounding_box": {
+            "x_min": float,
+            "y_min": float,
+            "x_max": float,
+            "y_max": float
+          },
+          "extracted_text": "string | null"
+        }
+      ]
+    }
+              `.trim(),
             },
             {
-              inlineData: { mimeType: imageBlob.type, data: base64Image },
+              inlineData: {
+                mimeType: imageBlob.type,
+                data: base64Image,
+              },
             },
           ],
         },
@@ -82,7 +108,8 @@ serve(async (req) => {
 
     const visionData = await visionResp.json();
     const visionText = visionData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const labels = extractLabelsFromJson(visionText);
+    const { labels, items } = extractLabelsFromJson(visionText);
+
 
     if (!labels || labels.length === 0) {
       return new Response(JSON.stringify({ error: "No food items detected." }), {
@@ -90,6 +117,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Step 3: Call Gemini Text API for recipe
     const labelText = labels.join(", ");
@@ -123,7 +151,7 @@ serve(async (req) => {
     const recipeData = await recipeResp.json();
     const recipe = recipeData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    return new Response(JSON.stringify({ labels, recipe }), {
+    return new Response(JSON.stringify({ labels, items, recipe }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -150,14 +178,29 @@ async function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// Parse JSON with food_items from Gemini response
-function extractLabelsFromJson(text: string): string[] {
+// Parse JSON with food_items from Gemini response - advanced with bounding_boxes
+function extractLabelsFromJson(text: string): {
+  labels: string[],
+  items: {
+    item_label: string,
+    bounding_box: {
+      x_min: number,
+      y_min: number,
+      x_max: number,
+      y_max: number
+    },
+    extracted_text: string | null
+  }[]
+} {
   try {
     const match = text.match(/\{.*\}/s);
-    if (!match) return [];
+    if (!match) return { labels: [], items: [] };
     const obj = JSON.parse(match[0]);
-    return Array.isArray(obj.food_items) ? obj.food_items : [];
+    const items = obj.detected_items || [];
+    const labels = items.map((i: any) => i.item_label);
+    return { labels, items };
   } catch {
-    return [];
+    return { labels: [], items: [] };
   }
 }
+

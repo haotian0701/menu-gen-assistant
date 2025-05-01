@@ -60,6 +60,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
         final data = jsonDecode(resp.body);
         final labels = List<String>.from(data['labels']);
         final recipe = data['recipe'] as String;
+        final detectedItems = List<Map<String, dynamic>>.from(data['items']);
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -67,6 +68,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
               imageUrl: widget.imageUrl,
               labels: labels,
               recipe: recipe,
+              detectedItems: detectedItems,
             ),
           ),
         );
