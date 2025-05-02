@@ -1,3 +1,4 @@
+// generating_page.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -9,12 +10,14 @@ class GeneratingPage extends StatefulWidget {
   final String imageUrl;
   final String mealType;
   final String dietaryGoal;
+  final List<Map<String, dynamic>>? manualLabels;
 
   const GeneratingPage({
     Key? key,
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
+    this.manualLabels,
   }) : super(key: key);
 
   @override
@@ -43,35 +46,41 @@ class _GeneratingPageState extends State<GeneratingPage> {
     final uri = Uri.parse('https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe');
 
     try {
+      final Map<String, dynamic> body = {
+        'image_url': widget.imageUrl,
+        'meal_type': widget.mealType,
+        'dietary_goal': widget.dietaryGoal,
+      };
+
+      if (widget.manualLabels != null) {
+        body['manual_labels'] = widget.manualLabels;
+      }
+
       final resp = await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $accessToken',
         },
-        body: jsonEncode({
-          'image_url': widget.imageUrl,
-          'meal_type': widget.mealType,
-          'dietary_goal': widget.dietaryGoal,
-        }),
+        body: jsonEncode(body),
       );
 
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
-        final labels = List<String>.from(data['labels']);
-        final recipe = data['recipe'] as String;
-        final detectedItems = List<Map<String, dynamic>>.from(data['items']);
+        final recipe = data['recipe'] as String? ?? 'No recipe generated.';
+        final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => RecipePage(
-              imageUrl: widget.imageUrl,
-              labels: labels,
-              recipe: recipe,
-              detectedItems: detectedItems,
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => RecipePage(
+                imageUrl: widget.imageUrl,
+                recipe: recipe,
+                detectedItems: items,
+              ),
             ),
-          ),
-        );
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Generation error: ${resp.body}')),

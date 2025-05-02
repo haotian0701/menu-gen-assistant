@@ -1,10 +1,11 @@
+// File 1: upload_page.dart (modified to go to extraction_page instead of generating_page)
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' show basename;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'generating_page.dart';
+import 'extraction_page.dart';
 
 class UploadImagePage extends StatefulWidget {
   const UploadImagePage({Key? key}) : super(key: key);
@@ -20,17 +21,13 @@ class _UploadImagePageState extends State<UploadImagePage> {
   String? _uploadedUrl;
   bool _loading = false;
 
-  // dropdown options
   final _mealTypes = ['breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   String _selectedMeal = 'dinner';
   String _selectedGoal = 'normal';
 
   Future<void> _pickAndUpload() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     if (result == null || result.files.isEmpty) return;
 
     setState(() {
@@ -38,37 +35,34 @@ class _UploadImagePageState extends State<UploadImagePage> {
       _uploadedUrl = null;
     });
 
-    final file     = result.files.first;
-    final bytes    = file.bytes!;
+    final file = result.files.first;
+    final bytes = file.bytes!;
     final origName = basename(file.name);
     final filename = '${DateTime.now().millisecondsSinceEpoch}_$origName';
-    final path     = 'public/$filename';
+    final path = 'public/$filename';
 
     try {
-      // Upload to Supabase Storage
       await _client.storage.from('food-images').uploadBinary(path, bytes);
       final url = _client.storage.from('food-images').getPublicUrl(path);
 
       setState(() {
-        _fileBytes   = bytes;
+        _fileBytes = bytes;
         _uploadedUrl = url;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  void _onGeneratePressed() {
+  void _onIdentifyPressed() {
     if (_uploadedUrl == null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GeneratingPage(
-          imageUrl:    _uploadedUrl!,
-          mealType:    _selectedMeal,
+        builder: (_) => ExtractionPage(
+          imageUrl: _uploadedUrl!,
+          mealType: _selectedMeal,
           dietaryGoal: _selectedGoal,
         ),
       ),
@@ -78,7 +72,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload & Generate Recipe')),
+      appBar: AppBar(title: const Text('Upload & Identify Items')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -90,17 +84,12 @@ class _UploadImagePageState extends State<UploadImagePage> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('Select & Upload Image'),
               ),
-
               if (_fileBytes != null) ...[
                 const SizedBox(height: 16),
                 Image.memory(_fileBytes!, height: 200),
                 const SizedBox(height: 8),
-                SelectableText(
-                  _uploadedUrl!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                SelectableText(_uploadedUrl!, style: Theme.of(context).textTheme.bodySmall),
               ],
-
               if (_uploadedUrl != null) ...[
                 const SizedBox(height: 24),
                 Row(
@@ -109,26 +98,22 @@ class _UploadImagePageState extends State<UploadImagePage> {
                     const Text('Meal: '),
                     DropdownButton<String>(
                       value: _selectedMeal,
-                      items: _mealTypes
-                          .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                          .toList(),
+                      items: _mealTypes.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
                       onChanged: (v) => setState(() => _selectedMeal = v!),
                     ),
                     const SizedBox(width: 32),
                     const Text('Goal: '),
                     DropdownButton<String>(
                       value: _selectedGoal,
-                      items: _dietaryGoals
-                          .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                          .toList(),
+                      items: _dietaryGoals.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                       onChanged: (v) => setState(() => _selectedGoal = v!),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _onGeneratePressed,
-                  child: const Text('Generate Recipe'),
+                  onPressed: _onIdentifyPressed,
+                  child: const Text('Identify Items'),
                 ),
               ],
             ],
