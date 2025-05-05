@@ -26,8 +26,14 @@ class _UploadImagePageState extends State<UploadImagePage> {
   String _selectedMeal = 'dinner';
   String _selectedGoal = 'normal';
 
+  final _mealTime = ['fast', 'medium', 'long'];
+  final _amountPeople = ['1', '2', '4'];
+  String _selectedTime = 'fast';
+  String _selectedPeople = '2';
+
   Future<void> _pickAndUpload() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+    final result = await FilePicker.platform
+        .pickFiles(type: FileType.image, withData: true);
     if (result == null || result.files.isEmpty) return;
 
     setState(() {
@@ -50,7 +56,8 @@ class _UploadImagePageState extends State<UploadImagePage> {
         _uploadedUrl = url;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
     } finally {
       setState(() => _loading = false);
     }
@@ -61,10 +68,11 @@ class _UploadImagePageState extends State<UploadImagePage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ExtractionPage(
-          imageUrl: _uploadedUrl!,
-          mealType: _selectedMeal,
-          dietaryGoal: _selectedGoal,
-        ),
+            imageUrl: _uploadedUrl!,
+            mealType: _selectedMeal,
+            dietaryGoal: _selectedGoal,
+            mealTime: _selectedTime,
+            amountPeople: _selectedPeople),
       ),
     );
   }
@@ -88,25 +96,54 @@ class _UploadImagePageState extends State<UploadImagePage> {
                 const SizedBox(height: 16),
                 Image.memory(_fileBytes!, height: 200),
                 const SizedBox(height: 8),
-                SelectableText(_uploadedUrl!, style: Theme.of(context).textTheme.bodySmall),
+                SelectableText(_uploadedUrl!,
+                    style: Theme.of(context).textTheme.bodySmall),
               ],
               if (_uploadedUrl != null) ...[
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('Meal: '),
-                    DropdownButton<String>(
-                      value: _selectedMeal,
-                      items: _mealTypes.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                      onChanged: (v) => setState(() => _selectedMeal = v!),
+                    Row(
+                      children: [
+                        const Text('Meal:'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildDropdown(_selectedMeal, _mealTypes, (v) {
+                            setState(() => _selectedMeal = v!);
+                          }),
+                        ),
+                        const SizedBox(width: 16),
+                        const Text('Goal:'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child:
+                              _buildDropdown(_selectedGoal, _dietaryGoals, (v) {
+                            setState(() => _selectedGoal = v!);
+                          }),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 32),
-                    const Text('Goal: '),
-                    DropdownButton<String>(
-                      value: _selectedGoal,
-                      items: _dietaryGoals.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                      onChanged: (v) => setState(() => _selectedGoal = v!),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Text('Time:'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildDropdown(_selectedTime, _mealTime, (v) {
+                            setState(() => _selectedTime = v!);
+                          }),
+                        ),
+                        const SizedBox(width: 16),
+                        const Text('People:'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildDropdown(_selectedPeople, _amountPeople,
+                              (v) {
+                            setState(() => _selectedPeople = v!);
+                          }),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -123,3 +160,26 @@ class _UploadImagePageState extends State<UploadImagePage> {
     );
   }
 }
+
+Widget _buildDropdown(
+    String value, List<String> items, void Function(String?) onChanged) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      border: Border.all(color: Colors.grey.shade400),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        isExpanded: true,
+        value: value,
+        items: items
+            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+            .toList(),
+        onChanged: onChanged,
+      ),
+    ),
+  );
+}
+
