@@ -12,14 +12,19 @@ class ExtractionPage extends StatefulWidget {
   final String imageUrl;
   final String mealType;
   final String dietaryGoal;
+  final String mealTime;
+  final String amountPeople;
 
   const ExtractionPage({
     Key? key,
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
+    required this.mealTime,
+    required this.amountPeople,
   }) : super(key: key);
 
+    
   @override
   State<ExtractionPage> createState() => _ExtractionPageState();
 }
