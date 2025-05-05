@@ -1,4 +1,5 @@
-// File 1: upload_page.dart (modified to go to extraction_page instead of generating_page)
+// lib/upload_page.dart
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +7,7 @@ import 'package:path/path.dart' show basename;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'extraction_page.dart';
+import 'history_page.dart';
 
 class UploadImagePage extends StatefulWidget {
   const UploadImagePage({Key? key}) : super(key: key);
@@ -32,8 +34,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
   String _selectedPeople = '2';
 
   Future<void> _pickAndUpload() async {
-    final result = await FilePicker.platform
-        .pickFiles(type: FileType.image, withData: true);
+    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     if (result == null || result.files.isEmpty) return;
 
     setState(() {
@@ -50,14 +51,12 @@ class _UploadImagePageState extends State<UploadImagePage> {
     try {
       await _client.storage.from('food-images').uploadBinary(path, bytes);
       final url = _client.storage.from('food-images').getPublicUrl(path);
-
       setState(() {
         _fileBytes = bytes;
         _uploadedUrl = url;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: \$e')));
     } finally {
       setState(() => _loading = false);
     }
@@ -68,11 +67,12 @@ class _UploadImagePageState extends State<UploadImagePage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ExtractionPage(
-            imageUrl: _uploadedUrl!,
-            mealType: _selectedMeal,
-            dietaryGoal: _selectedGoal,
-            mealTime: _selectedTime,
-            amountPeople: _selectedPeople),
+          imageUrl: _uploadedUrl!,
+          mealType: _selectedMeal,
+          dietaryGoal: _selectedGoal,
+          mealTime: _selectedTime,
+          amountPeople: _selectedPeople,
+        ),
       ),
     );
   }
@@ -80,7 +80,20 @@ class _UploadImagePageState extends State<UploadImagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload & Identify Items')),
+      appBar: AppBar(
+        title: const Text('Upload & Identify Items'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Menu History',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HistoryPage()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -96,54 +109,79 @@ class _UploadImagePageState extends State<UploadImagePage> {
                 const SizedBox(height: 16),
                 Image.memory(_fileBytes!, height: 200),
                 const SizedBox(height: 8),
-                SelectableText(_uploadedUrl!,
-                    style: Theme.of(context).textTheme.bodySmall),
+                SelectableText(
+                  _uploadedUrl!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
               if (_uploadedUrl != null) ...[
                 const SizedBox(height: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Text('Meal:'),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDropdown(_selectedMeal, _mealTypes, (v) {
-                            setState(() => _selectedMeal = v!);
-                          }),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text('Goal:'),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child:
-                              _buildDropdown(_selectedGoal, _dietaryGoals, (v) {
-                            setState(() => _selectedGoal = v!);
-                          }),
-                        ),
-                      ],
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Meal:'),
+                          _buildDropdown(
+                            _selectedMeal,
+                            _mealTypes,
+                            (v) => setState(() => _selectedMeal = v!),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Text('Time:'),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDropdown(_selectedTime, _mealTime, (v) {
-                            setState(() => _selectedTime = v!);
-                          }),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text('People:'),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDropdown(_selectedPeople, _amountPeople,
-                              (v) {
-                            setState(() => _selectedPeople = v!);
-                          }),
-                        ),
-                      ],
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Goal:'),
+                          _buildDropdown(
+                            _selectedGoal,
+                            _dietaryGoals,
+                            (v) => setState(() => _selectedGoal = v!),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Time:'),
+                          _buildDropdown(
+                            _selectedTime,
+                            _mealTime,
+                            (v) => setState(() => _selectedTime = v!),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('People:'),
+                          _buildDropdown(
+                            _selectedPeople,
+                            _amountPeople,
+                            (v) => setState(() => _selectedPeople = v!),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -162,9 +200,12 @@ class _UploadImagePageState extends State<UploadImagePage> {
 }
 
 Widget _buildDropdown(
-    String value, List<String> items, void Function(String?) onChanged) {
+  String value,
+  List<String> items,
+  void Function(String?) onChanged,
+) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     decoration: BoxDecoration(
       color: Colors.grey.shade100,
       border: Border.all(color: Colors.grey.shade400),
@@ -174,12 +215,9 @@ Widget _buildDropdown(
       child: DropdownButton<String>(
         isExpanded: true,
         value: value,
-        items: items
-            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            .toList(),
+        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
         onChanged: onChanged,
       ),
     ),
   );
 }
-

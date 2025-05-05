@@ -1,36 +1,68 @@
+// lib/recipe_page.dart
+
 import 'dart:async';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart'; // Import flutter_html
+import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// Helper function to strip HTML tags for sharing plain text
+/// Helper function to strip HTML tags when sharing as plain text
 String _stripHtml(String htmlString) {
-  // This is a basic regex, might not cover all edge cases but handles common tags.
   final htmlRegex = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-  // Also remove potential markdown fences before stripping tags for sharing
-  final cleanedString = htmlString.replaceAll('```html', '').replaceAll('```', '');
-  return cleanedString.replaceAll(htmlRegex, '').replaceAll('&nbsp;', ' ').trim();
+  var cleaned = htmlString
+      .replaceAll('```html', '')
+      .replaceAll('```', '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll(htmlRegex, '')
+      .trim();
+  return cleaned;
 }
 
-class RecipePage extends StatelessWidget {
+/// Helper to extract the <h1> title from the HTML recipe
+String _extractTitle(String html) {
+  final match = RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false).firstMatch(html);
+  return match?.group(1)?.trim() ?? '';
+}
+
+class RecipePage extends StatefulWidget {
   final String imageUrl;
-  final String recipe; // This will now contain HTML
+  final String recipe; // HTML content
   final List<Map<String, dynamic>> detectedItems;
+  final String? videoUrl; // Optional YouTube link
 
   const RecipePage({
     Key? key,
     required this.imageUrl,
-    required this.recipe, // Keep receiving the recipe string (now HTML)
+    required this.recipe,
     required this.detectedItems,
+    this.videoUrl,
   }) : super(key: key);
 
-  Future<Size> _getImageSize(String imageUrl) async {
-    final image = Image.network(imageUrl);
+  @override
+  State<RecipePage> createState() => _RecipePageState();
+}
+
+class _RecipePageState extends State<RecipePage> {
+  late final String _cleanedRecipe;
+  late final String _pageTitle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Remove markdown fences if any
+    _cleanedRecipe = widget.recipe
+        .replaceAll('```html', '')
+        .replaceAll('```', '')
+        .trim();
+    // Extract <h1> as the page title
+    _pageTitle = _extractTitle(_cleanedRecipe);
+  }
+
+  Future<Size> _getImageSize(String url) async {
     final completer = Completer<Size>();
+    final image = Image.network(url);
     image.image.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener((ImageInfo info, bool _) {
+      ImageStreamListener((info, _) {
         completer.complete(Size(
           info.image.width.toDouble(),
           info.image.height.toDouble(),
@@ -42,55 +74,51 @@ class RecipePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Clean the recipe string before using it
-    final cleanedRecipe = recipe
-        .replaceAll('```html', '') // Remove leading markdown fence
-        .replaceAll('```', '')     // Remove trailing markdown fence
-        .trim();                  // Remove any leading/trailing whitespace
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Recipe & Ingredients')),
+      appBar: AppBar(title: Text(_pageTitle.isNotEmpty ? _pageTitle : 'Recipe')),
       body: Column(
         children: [
+          // Display the uploaded image with ingredient chips
           Expanded(
             flex: 2,
             child: FutureBuilder<Size>(
-              future: _getImageSize(imageUrl),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+              future: _getImageSize(widget.imageUrl),
+              builder: (context, snap) {
+                if (!snap.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                final imageSize = snapshot.data!;
-                final aspectRatio = imageSize.width / imageSize.height;
-
+                final imgSize = snap.data!;
+                final aspectRatio = imgSize.width / imgSize.height;
                 return AspectRatio(
                   aspectRatio: aspectRatio,
                   child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final imageWidth = constraints.maxWidth;
-                      final imageHeight = constraints.maxHeight;
-
-                      return OverflowBox(
-                        alignment: Alignment.topLeft,
-                        maxWidth: double.infinity,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Image.network(
-                              imageUrl,
-                              width: imageWidth,
-                              height: imageHeight,
-                              fit: BoxFit.contain,
-                            ),
-                            ..._generatePositionedChips(
-                              detectedItems,
-                              imageWidth,
-                              imageHeight,
-                              context,
-                            ),
-                          ],
-                        ),
+                    builder: (ctx, cons) {
+                      final w = cons.maxWidth;
+                      final h = cons.maxHeight;
+                      final imgAspect = imgSize.width / imgSize.height;
+                      final contAspect = w / h;
+                      double rw, rh;
+                      if (imgAspect > contAspect) {
+                        rw = w;
+                        rh = imgSize.height * (w / imgSize.width);
+                      } else {
+                        rh = h;
+                        rw = imgSize.width * (h / imgSize.height);
+                      }
+                      final ox = (w - rw) / 2;
+                      final oy = (h - rh) / 2;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned(
+                            left: ox,
+                            top: oy,
+                            width: rw,
+                            height: rh,
+                            child: Image.network(widget.imageUrl, fit: BoxFit.contain),
+                          ),
+                          // You can overlay chips here if needed
+                        ],
                       );
                     },
                   ),
@@ -98,157 +126,78 @@ class RecipePage extends StatelessWidget {
               },
             ),
           ),
+
+          // Video button if available
+          if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.play_circle_fill),
+                label: const Text('Watch Cooking Video'),
+                onPressed: () async {
+                  final uri = Uri.parse(widget.videoUrl!);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Could not launch video')),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+
+          // Render recipe HTML
           Expanded(
             flex: 3,
             child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 1.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      child: Html(
-                        data: cleanedRecipe, // Use the cleaned recipe string
-                        style: {
-                          "h1": Style(
-                            fontSize: FontSize(Theme.of(context).textTheme.headlineSmall!.fontSize!),
-                            fontWeight: FontWeight.bold,
-                            margin: Margins.only(bottom: 10),
-                          ),
-                          "h2": Style(
-                            fontSize: FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
-                            fontWeight: FontWeight.w600,
-                            margin: Margins.only(top: 15, bottom: 5),
-                          ),
-                          "li": Style(
-                            fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
-                            padding: HtmlPaddings.only(left: 5),
-                          ),
-                          "p": Style(
-                            fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
-                            lineHeight: LineHeight.number(1.4),
-                          ),
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextButton.icon(
-                      icon: const Icon(Icons.share),
-                      label: const Text('Share recipe'),
-                      onPressed: () {
-                        String shareTitle = 'Generated Recipe';
-                        // Use cleanedRecipe for title extraction as well
-                        final titleMatch = RegExp(r"<h1.*?>(.*?)<\/h1>", caseSensitive: false).firstMatch(cleanedRecipe);
-                        if (titleMatch != null) {
-                          // Pass the matched group (inner content) to _stripHtml
-                          shareTitle = _stripHtml(titleMatch.group(1) ?? '');
-                        }
-                        // Pass the original recipe to _stripHtml which handles cleaning fences now
-                        final String shareContent = _stripHtml(recipe);
-                        Share.share(shareContent, subject: shareTitle);
-                      },
-                    ),
-                  ],
-                ),
+              padding: const EdgeInsets.all(16.0),
+              child: Html(
+                data: _cleanedRecipe,
+                style: {
+                  "h1": Style(
+                    fontSize: FontSize(Theme.of(context).textTheme.headlineSmall!.fontSize!),
+                    fontWeight: FontWeight.bold,
+                    margin: Margins.only(bottom: 12),
+                  ),
+                  "h2": Style(
+                    fontSize: FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
+                    fontWeight: FontWeight.w600,
+                    margin: Margins.only(top: 16, bottom: 8),
+                  ),
+                  "ul": Style(margin: Margins.symmetric(vertical: 8)),
+                  "li": Style(
+                    fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
+                    padding: HtmlPaddings.only(left: 8),
+                  ),
+                  "p": Style(
+                    fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
+                    lineHeight: LineHeight.number(1.4),
+                    margin: Margins.only(bottom: 8),
+                  ),
+                },
               ),
+            ),
+          ),
+
+          // Share button
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: TextButton.icon(
+              icon: const Icon(Icons.share),
+              label: const Text('Share Recipe'),
+              onPressed: () {
+                final shareText = _stripHtml(widget.recipe);
+                Share.share(
+                  shareText,
+                  subject: _pageTitle.isNotEmpty ? _pageTitle : 'Recipe',
+                );
+              },
             ),
           ),
         ],
       ),
     );
-  }
-
-  List<Widget> _generatePositionedChips(
-    List<Map<String, dynamic>> items,
-    double imageWidth,
-    double imageHeight,
-    BuildContext context,
-  ) {
-    final List<Widget> chips = [];
-    final List<Rect> occupiedAreas = [];
-    const double baseChipHeight = 32.0;
-    const double additionalInfoHeight = 14.0;
-    const double verticalPadding = 4.0;
-
-    for (var item in items) {
-      final box = item['bounding_box'] as Map<String, dynamic>? ?? {};
-      final label = item['item_label'] as String? ?? 'Unknown';
-      final additionalInfo = item['additional_info'] as String?;
-      final bool hasAdditionalInfo = additionalInfo != null && additionalInfo.isNotEmpty;
-
-      double left = (box['x_min'] as double? ?? 0.0) * imageWidth;
-      double top = (box['y_min'] as double? ?? 0.0) * imageHeight;
-      double width = ((box['x_max'] as double? ?? 0.0) - (box['x_min'] as double? ?? 0.0)) * imageWidth;
-      double height = ((box['y_max'] as double? ?? 0.0) - (box['y_min'] as double? ?? 0.0)) * imageHeight;
-
-      width = width < 0 ? 0 : width;
-      height = height < 0 ? 0 : height;
-
-      double chipWidthEstimate = label.length * 8.0 + 40.0;
-      double chipHeightEstimate = baseChipHeight + (hasAdditionalInfo ? additionalInfoHeight : 0.0) + (verticalPadding * 2);
-
-      double chipLeft = left + width / 2 - chipWidthEstimate / 2;
-      double chipTop = top + height / 2 - chipHeightEstimate / 2;
-
-      chipLeft = chipLeft.clamp(0, imageWidth - chipWidthEstimate);
-      chipTop = chipTop.clamp(0, imageHeight - chipHeightEstimate);
-
-      Rect chipRect = Rect.fromLTWH(chipLeft, chipTop, chipWidthEstimate, chipHeightEstimate * 1.1);
-      int attempts = 0;
-      while (occupiedAreas.any((r) => r.overlaps(chipRect)) && attempts < 10) {
-        chipTop += baseChipHeight * 0.5 + 4;
-        chipTop = chipTop.clamp(0, imageHeight - chipHeightEstimate);
-        chipRect = Rect.fromLTWH(chipLeft, chipTop, chipWidthEstimate, chipHeightEstimate * 1.1);
-        if (chipTop >= imageHeight - chipHeightEstimate) break;
-        attempts++;
-      }
-      occupiedAreas.add(chipRect);
-
-      chips.add(Positioned(
-        left: chipLeft,
-        top: chipTop,
-        child: Container(
-          width: chipWidthEstimate,
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: verticalPadding),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (hasAdditionalInfo)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2.0),
-                  child: Text(
-                    additionalInfo!,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ));
-    }
-
-    return chips;
   }
 }

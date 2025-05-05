@@ -1,4 +1,5 @@
-// generating_page.dart
+// lib/generating_page.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -10,8 +11,8 @@ class GeneratingPage extends StatefulWidget {
   final String imageUrl;
   final String mealType;
   final String dietaryGoal;
-  final String mealTime;
-  final String amountPeople;
+  final String? mealTime;
+  final String? amountPeople;
 
   final List<Map<String, dynamic>>? manualLabels;
 
@@ -20,8 +21,8 @@ class GeneratingPage extends StatefulWidget {
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
-    required this.mealTime,
-    required this.amountPeople,
+    this.mealTime,
+    this.amountPeople,
     this.manualLabels,
   }) : super(key: key);
 
@@ -38,25 +39,27 @@ class _GeneratingPageState extends State<GeneratingPage> {
 
   Future<void> _generate() async {
     final supabase = Supabase.instance.client;
-    final accessToken = supabase.auth.currentSession?.accessToken;
-
-    if (accessToken == null) {
+    final token = supabase.auth.currentSession?.accessToken;
+    if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first.')),
+        const SnackBar(content: Text('Please log in first')),
       );
       Navigator.of(context).pop();
       return;
     }
 
-    final uri = Uri.parse('https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe');
+    final uri = Uri.parse(
+      'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
+    );
 
     try {
-      final Map<String, dynamic> body = {
+      final body = <String, dynamic>{
         'image_url': widget.imageUrl,
         'meal_type': widget.mealType,
         'dietary_goal': widget.dietaryGoal,
       };
-
+      if (widget.mealTime != null)    body['meal_time']      = widget.mealTime;
+      if (widget.amountPeople!= null) body['amount_people']  = widget.amountPeople;
       if (widget.manualLabels != null) {
         body['manual_labels'] = widget.manualLabels;
       }
@@ -65,33 +68,42 @@ class _GeneratingPageState extends State<GeneratingPage> {
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode(body),
       );
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        final recipe = data['recipe'] as String? ?? 'No recipe generated.';
-        final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
-
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => RecipePage(
-                imageUrl: widget.imageUrl,
-                recipe: recipe,
-                detectedItems: items,
-              ),
-            ),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generation error: ${resp.body}')),
-        );
-        Navigator.of(context).pop();
+      if (resp.statusCode != 200) {
+        throw Exception('Generation Failure ${resp.statusCode}: ${resp.body}');
       }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final recipe    = data['recipe']     as String  ;
+      final items     = (data['items'] as List).cast<Map<String, dynamic>>();
+      final videoUrl  = data['video_url'] as String?; 
+
+      // Write history in Supabase.
+      await supabase.from('history').insert({
+        'user_id'     : supabase.auth.currentUser!.id,
+        'image_url'   : widget.imageUrl,
+        'meal_type'   : widget.mealType,
+        'dietary_goal': widget.dietaryGoal,
+        'detected_items': items,
+        'recipe_html' : recipe,
+        'video_url'   : videoUrl,
+      });
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RecipePage(
+            imageUrl:      widget.imageUrl,
+            recipe:        recipe,
+            detectedItems: items,
+            videoUrl:      videoUrl,
+          ),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
