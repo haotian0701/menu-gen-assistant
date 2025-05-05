@@ -10,6 +10,9 @@ class GeneratingPage extends StatefulWidget {
   final String imageUrl;
   final String mealType;
   final String dietaryGoal;
+  final String mealTime;
+  final String amountPeople;
+
   final List<Map<String, dynamic>>? manualLabels;
 
   const GeneratingPage({
@@ -17,6 +20,8 @@ class GeneratingPage extends StatefulWidget {
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
+    required this.mealTime,
+    required this.amountPeople,
     this.manualLabels,
   }) : super(key: key);
 
