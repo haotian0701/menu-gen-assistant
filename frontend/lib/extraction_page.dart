@@ -324,6 +324,8 @@ class _ExtractionPageState extends State<ExtractionPage> {
           imageUrl: widget.imageUrl,
           mealType: widget.mealType,
           dietaryGoal: widget.dietaryGoal,
+          mealTime: widget.mealTime,
+          amountPeople: widget.amountPeople,
           manualLabels: labelsToSend, // This now includes bounding_box
         ),
       ),
