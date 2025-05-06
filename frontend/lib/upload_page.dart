@@ -39,6 +39,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
 
     setState(() {
       _loading = true;
+      _fileBytes = null; 
       _uploadedUrl = null;
     });
 

@@ -6,21 +6,20 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Helper function to strip HTML tags when sharing as plain text
+/// Helper to strip HTML tags when sharing as plain text
 String _stripHtml(String htmlString) {
   final htmlRegex = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-  var cleaned = htmlString
+  final cleaned = htmlString
       .replaceAll('```html', '')
       .replaceAll('```', '')
-      .replaceAll('&nbsp;', ' ')
-      .replaceAll(htmlRegex, '')
-      .trim();
-  return cleaned;
+      .replaceAll('&nbsp;', ' ');
+  return cleaned.replaceAll(htmlRegex, '').trim();
 }
 
 /// Helper to extract the <h1> title from the HTML recipe
 String _extractTitle(String html) {
-  final match = RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false).firstMatch(html);
+  final match =
+      RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false).firstMatch(html);
   return match?.group(1)?.trim() ?? '';
 }
 
@@ -49,48 +48,69 @@ class _RecipePageState extends State<RecipePage> {
   @override
   void initState() {
     super.initState();
-    // Remove markdown fences if any
+    // apply full cleaning logic: remove fences, &nbsp;, then strip tags
     _cleanedRecipe = widget.recipe
         .replaceAll('```html', '')
         .replaceAll('```', '')
+        .replaceAll('&nbsp;', ' ')
         .trim();
-    // Extract <h1> as the page title
     _pageTitle = _extractTitle(_cleanedRecipe);
   }
 
   Future<Size> _getImageSize(String url) async {
     final completer = Completer<Size>();
     final image = Image.network(url);
-    image.image.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener((info, _) {
-        completer.complete(Size(
-          info.image.width.toDouble(),
-          info.image.height.toDouble(),
-        ));
-      }),
-    );
+    final stream = image.image.resolve(const ImageConfiguration());
+    late ImageStreamListener lis;
+    lis = ImageStreamListener((info, _) {
+      completer.complete(Size(
+        info.image.width.toDouble(),
+        info.image.height.toDouble(),
+      ));
+      stream.removeListener(lis);
+    }, onError: (err, _) {
+      completer.completeError(err!);
+      stream.removeListener(lis);
+    });
+    stream.addListener(lis);
     return completer.future;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_pageTitle.isNotEmpty ? _pageTitle : 'Recipe')),
+      appBar:
+          AppBar(title: Text(_pageTitle.isNotEmpty ? _pageTitle : 'Recipe')),
       body: Column(
         children: [
-          // Display the uploaded image with ingredient chips
+          // Image + overlayed chips
           Expanded(
             flex: 2,
             child: FutureBuilder<Size>(
               future: _getImageSize(widget.imageUrl),
               builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(child: Text('Error loading image: ${snap.error}'));
+                }
                 if (!snap.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final imgSize = snap.data!;
-                final aspectRatio = imgSize.width / imgSize.height;
+                if (imgSize.width <= 0 || imgSize.height <= 0) {
+
+
+                  return Image.network(
+                  widget.imageUrl,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (ctx, err, stack) =>
+                    const Center(child: Icon(Icons.error)),
+                );
+                }
+                final aspect = imgSize.width / imgSize.height;
                 return AspectRatio(
-                  aspectRatio: aspectRatio,
+                  aspectRatio: aspect,
                   child: LayoutBuilder(
                     builder: (ctx, cons) {
                       final w = cons.maxWidth;
@@ -115,9 +135,11 @@ class _RecipePageState extends State<RecipePage> {
                             top: oy,
                             width: rw,
                             height: rh,
-                            child: Image.network(widget.imageUrl, fit: BoxFit.contain),
+                            child:
+                                Image.network(widget.imageUrl, fit: BoxFit.contain),
                           ),
-                          // You can overlay chips here if needed
+                          ..._generatePositionedChips(
+                              widget.detectedItems, w, h, rw, rh, ox, oy),
                         ],
                       );
                     },
@@ -133,7 +155,7 @@ class _RecipePageState extends State<RecipePage> {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.play_circle_fill),
-                label: const Text('Watch Cooking Video'),
+                label: Text('Watch Cooking Video'),
                 onPressed: () async {
                   final uri = Uri.parse(widget.videoUrl!);
                   if (await canLaunchUrl(uri)) {
@@ -157,22 +179,26 @@ class _RecipePageState extends State<RecipePage> {
                 data: _cleanedRecipe,
                 style: {
                   "h1": Style(
-                    fontSize: FontSize(Theme.of(context).textTheme.headlineSmall!.fontSize!),
+                    fontSize: FontSize(
+                        Theme.of(context).textTheme.headlineSmall!.fontSize!),
                     fontWeight: FontWeight.bold,
                     margin: Margins.only(bottom: 12),
                   ),
                   "h2": Style(
-                    fontSize: FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
+                    fontSize:
+                        FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
                     fontWeight: FontWeight.w600,
                     margin: Margins.only(top: 16, bottom: 8),
                   ),
                   "ul": Style(margin: Margins.symmetric(vertical: 8)),
                   "li": Style(
-                    fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
+                    fontSize: FontSize(
+                        Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
                     padding: HtmlPaddings.only(left: 8),
                   ),
                   "p": Style(
-                    fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
+                    fontSize:
+                        FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
                     lineHeight: LineHeight.number(1.4),
                     margin: Margins.only(bottom: 8),
                   ),
@@ -188,16 +214,90 @@ class _RecipePageState extends State<RecipePage> {
               icon: const Icon(Icons.share),
               label: const Text('Share Recipe'),
               onPressed: () {
-                final shareText = _stripHtml(widget.recipe);
-                Share.share(
-                  shareText,
-                  subject: _pageTitle.isNotEmpty ? _pageTitle : 'Recipe',
-                );
+                final shareContent = _stripHtml(_cleanedRecipe);
+                Share.share(shareContent, subject: _pageTitle);
               },
             ),
           ),
         ],
       ),
     );
+  }
+
+  List<Widget> _generatePositionedChips(
+    List<Map<String, dynamic>> items,
+    double containerW,
+    double containerH,
+    double imgW,
+    double imgH,
+    double offsetX,
+    double offsetY,
+  ) {
+    final chips = <Widget>[];
+    final occupied = <Rect>[];
+    const baseH = 32.0, extraH = 14.0, vpad = 4.0;
+
+    for (var item in items) {
+      final box = item['bounding_box'] as Map<String, dynamic>? ?? {};
+      final xMin = (box['x_min'] as num?)?.toDouble() ?? 0.0;
+      final yMin = (box['y_min'] as num?)?.toDouble() ?? 0.0;
+      final xMax = (box['x_max'] as num?)?.toDouble() ?? 0.0;
+      final yMax = (box['y_max'] as num?)?.toDouble() ?? 0.0;
+      final label = item['item_label'] as String? ?? 'Unknown';
+      final info = item['additional_info'] as String? ?? '';
+      final hasInfo = info.isNotEmpty;
+
+      final cx = offsetX + xMin * imgW + (xMax - xMin) * imgW / 2;
+      final cy = offsetY + yMin * imgH + (yMax - yMin) * imgH / 2;
+      final chipW = label.length * 8.0 + 40.0;
+      final chipH = baseH + (hasInfo ? extraH : 0) + vpad * 2;
+
+      double left = (cx - chipW / 2).clamp(0.0, containerW - chipW);
+      double top = (cy - chipH / 2).clamp(0.0, containerH - chipH);
+      Rect rect = Rect.fromLTWH(left, top, chipW, chipH * 1.1);
+      int tries = 0;
+      while (occupied.any((r) => r.overlaps(rect)) && tries < 10) {
+        top = (top + baseH * 0.5 + 4).clamp(0.0, containerH - chipH);
+        rect = Rect.fromLTWH(left, top, chipW, chipH * 1.1);
+        tries++;
+      }
+      occupied.add(rect);
+
+      chips.add(Positioned(
+        left: left,
+        top: top,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: vpad),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer)),
+              if (hasInfo)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(info,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withOpacity(0.8))),
+                ),
+            ],
+          ),
+        ),
+      ));
+    }
+
+    return chips;
   }
 }
