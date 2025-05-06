@@ -48,12 +48,28 @@ class _RecipePageState extends State<RecipePage> {
   @override
   void initState() {
     super.initState();
-    // apply full cleaning logic: remove fences, &nbsp;, then strip tags
-    _cleanedRecipe = widget.recipe
+
+    // Initial cleaning: remove fences, &nbsp;
+    String tempRecipe = widget.recipe
         .replaceAll('```html', '')
         .replaceAll('```', '')
         .replaceAll('&nbsp;', ' ')
         .trim();
+
+    // Check for and remove wrapping <pre> tags
+    // This regex looks for <pre...> at the start and </pre> at the end, capturing content in between.
+    // dotAll: true (s flag) makes . match newlines.
+    final preRegex = RegExp(r"^\s*<pre[^>]*>(.*)<\/pre>\s*$", caseSensitive: false, dotAll: true);
+    final preMatch = preRegex.firstMatch(tempRecipe);
+
+    if (preMatch != null) {
+      // If <pre> tags are found wrapping the content, use the inner content
+      _cleanedRecipe = preMatch.group(1)!.trim();
+    } else {
+      // Otherwise, use the result from initial cleaning
+      _cleanedRecipe = tempRecipe;
+    }
+
     _pageTitle = _extractTitle(_cleanedRecipe);
   }
 
@@ -155,7 +171,7 @@ class _RecipePageState extends State<RecipePage> {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.play_circle_fill),
-                label: Text('Watch Cooking Video'),
+                label: const Text('Watch Cooking Video'),
                 onPressed: () async {
                   final uri = Uri.parse(widget.videoUrl!);
                   if (await canLaunchUrl(uri)) {
@@ -172,51 +188,62 @@ class _RecipePageState extends State<RecipePage> {
 
           // Render recipe HTML
           Expanded(
-            flex: 3,
+            flex: 3, 
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Html(
-                data: _cleanedRecipe,
-                style: {
-                  "h1": Style(
-                    fontSize: FontSize(
-                        Theme.of(context).textTheme.headlineSmall!.fontSize!),
-                    fontWeight: FontWeight.bold,
-                    margin: Margins.only(bottom: 12),
-                  ),
-                  "h2": Style(
-                    fontSize:
-                        FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
-                    fontWeight: FontWeight.w600,
-                    margin: Margins.only(top: 16, bottom: 8),
-                  ),
-                  "ul": Style(margin: Margins.symmetric(vertical: 8)),
-                  "li": Style(
-                    fontSize: FontSize(
-                        Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
-                    padding: HtmlPaddings.only(left: 8),
-                  ),
-                  "p": Style(
-                    fontSize:
-                        FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
-                    lineHeight: LineHeight.number(1.4),
-                    margin: Margins.only(bottom: 8),
-                  ),
-                },
+              child: Padding( // Add Padding around the Column
+                padding: const EdgeInsets.all(16.0),
+                child: Column( // Wrap Container and Share button in a Column
+                  children: [
+                    Container( // Apply Container styling
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 1.0), 
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8), 
+                        borderRadius: BorderRadius.circular(12.0), 
+                      ),
+                      child: Html(
+                        data: _cleanedRecipe,
+                        style: {
+                          "h1": Style(
+                            fontSize: FontSize(
+                                Theme.of(context).textTheme.headlineSmall!.fontSize!),
+                            fontWeight: FontWeight.bold,
+                            margin: Margins.only(bottom: 10), 
+                          ),
+                          "h2": Style(
+                            fontSize:
+                                FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
+                            fontWeight: FontWeight.w600,
+                            margin: Margins.only(top: 15, bottom: 5), 
+                          ),
+                          "ul": Style(margin: Margins.symmetric(vertical: 8)), 
+                          "li": Style(
+                            fontSize: FontSize(
+                                Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
+                            padding: HtmlPaddings.only(left: 5),
+                          ),
+                          "p": Style(
+                            fontSize:
+                                FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
+                            lineHeight: LineHeight.number(1.4),
+                            margin: Margins.only(bottom: 8), 
+                          ),
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20), 
+                    // Share button - moved inside the Column and Padding
+                    TextButton.icon(
+                      icon: const Icon(Icons.share),
+                      label: const Text('Share Recipe'),
+                      onPressed: () {
+                        final shareContent = _stripHtml(_cleanedRecipe);
+                        Share.share(shareContent, subject: _pageTitle);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-
-          // Share button
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: TextButton.icon(
-              icon: const Icon(Icons.share),
-              label: const Text('Share Recipe'),
-              onPressed: () {
-                final shareContent = _stripHtml(_cleanedRecipe);
-                Share.share(shareContent, subject: _pageTitle);
-              },
             ),
           ),
         ],
