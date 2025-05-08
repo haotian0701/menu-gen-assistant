@@ -10,7 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  supabase_flutter: ^1.10.4
+  supabase_flutter: ^2.9.0
+  sign_in_with_apple: ^7.0.1
   file_picker: ^8.0.7
   path: ^1.9.1
   http: ^1.1.0

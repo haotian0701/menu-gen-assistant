@@ -32,7 +32,7 @@ class _HistoryPageState extends State<HistoryPage> {
       final userId = _supabase.auth.currentUser!.id;
       final List<Map<String, dynamic>> records = await _supabase
         .from('history')
-        .select<List<Map<String, dynamic>>>()
+        .select() 
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 
