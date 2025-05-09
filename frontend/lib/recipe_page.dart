@@ -272,11 +272,14 @@ class _RecipePageState extends State<RecipePage> {
       final yMax = (box['y_max'] as num?)?.toDouble() ?? 0.0;
       final label = item['item_label'] as String? ?? 'Unknown';
       final info = item['additional_info'] as String? ?? '';
+      final quantity = item['quantity'] as int? ?? 1; // Get quantity
       final hasInfo = info.isNotEmpty;
+
+      final displayLabel = quantity > 1 ? '$quantity $label' : label; // Prepend quantity if > 1
 
       final cx = offsetX + xMin * imgW + (xMax - xMin) * imgW / 2;
       final cy = offsetY + yMin * imgH + (yMax - yMin) * imgH / 2;
-      final chipW = label.length * 8.0 + 40.0;
+      final chipW = (displayLabel.length * 7.0 + (hasInfo ? info.length * 5.0 : 0) + 24.0).clamp(60.0, containerW * 0.8); // Adjusted width calculation
       final chipH = baseH + (hasInfo ? extraH : 0) + vpad * 2;
 
       double left = (cx - chipW / 2).clamp(0.0, containerW - chipW);
@@ -298,11 +301,18 @@ class _RecipePageState extends State<RecipePage> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.9),
             borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 3,
+                offset: const Offset(1,1),
+              )
+            ]
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label,
+              Text(displayLabel, // Use displayLabel
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 12,

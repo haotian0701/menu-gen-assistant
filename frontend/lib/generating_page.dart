@@ -60,6 +60,8 @@ class _GeneratingPageState extends State<GeneratingPage> {
       };
       if (widget.mealTime != null)    body['meal_time']      = widget.mealTime;
       if (widget.amountPeople!= null) body['amount_people']  = widget.amountPeople;
+      
+      // manualLabels from ExtractionPage now include 'quantity'
       if (widget.manualLabels != null) {
         body['manual_labels'] = widget.manualLabels;
       }
@@ -82,15 +84,18 @@ class _GeneratingPageState extends State<GeneratingPage> {
       final items     = (data['items'] as List).cast<Map<String, dynamic>>();
       final videoUrl  = data['video_url'] as String?; 
 
+      // 'items' received from backend already have 'quantity'
       // Write history in Supabase.
       await supabase.from('history').insert({
         'user_id'     : supabase.auth.currentUser!.id,
         'image_url'   : widget.imageUrl,
         'meal_type'   : widget.mealType,
         'dietary_goal': widget.dietaryGoal,
-        'detected_items': items,
+        'detected_items': items, // items already include quantity
         'recipe_html' : recipe,
         'video_url'   : videoUrl,
+        'meal_time'   : widget.mealTime, // Also save these if available
+        'amount_people': widget.amountPeople,
       });
 
       if (!mounted) return;

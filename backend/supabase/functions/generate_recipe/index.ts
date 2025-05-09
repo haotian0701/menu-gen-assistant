@@ -56,45 +56,52 @@ serve(async (req)=>{
   try {
     const body = await req.json();
     const { image_url, meal_type = "dinner", dietary_goal = "normal", mode, manual_labels } = body;
-    if (!image_url) {
-      return new Response(JSON.stringify({
-        error: "Missing 'image_url' in request body"
-      }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
+    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) { // Allow extract_only with manual_labels without image_url
+      if (!image_url) {
+        return new Response(JSON.stringify({
+          error: "Missing 'image_url' in request body"
+        }), {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
+      }
     }
-    // Step 1: Download image
-    const imageResp = await fetch(image_url);
-    if (!imageResp.ok) {
-      console.error(`Failed to download image: ${imageResp.status}`);
-      return new Response(JSON.stringify({
-        error: "Failed to download image"
-      }), {
-        status: 400,
-        headers: corsHeaders
-      });
-    }
-    const imageBlob = await imageResp.blob();
-    const arrayBuffer = await imageBlob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binaryString = "";
-    uint8Array.forEach((b)=>binaryString += String.fromCharCode(b));
-    const base64Image = btoa(binaryString);
-    // Step 2: Detection or manual labels
-    let items = [];
+
+    let sourceItems = []; // Raw items before grouping
+
     if (manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0) {
-      console.log("Using manual labels provided.");
-      items = manual_labels.map((i)=>({
+      console.log("Using manual labels as source.");
+      sourceItems = manual_labels.map((i)=>({
           item_label: i?.item_label,
           additional_info: i?.additional_info,
-          bounding_box: i?.bounding_box
-        })).filter((i)=>i.item_label);
-    } else {
-      console.log("No manual labels — calling Vision API.");
+          bounding_box: i?.bounding_box,
+          // If manual labels come with a quantity, it's treated as the count for that specific entry.
+          // The grouping logic below will sum these up if multiple entries have the same item_label.
+          _source_quantity: typeof i?.quantity === 'number' ? i.quantity : 1
+      })).filter((i)=>i.item_label);
+    } else if (image_url) {
+      // Step 1: Download image
+      const imageResp = await fetch(image_url);
+      if (!imageResp.ok) {
+        console.error(`Failed to download image: ${imageResp.status}`);
+        return new Response(JSON.stringify({
+          error: "Failed to download image"
+        }), {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+      const imageBlob = await imageResp.blob();
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binaryString = "";
+      uint8Array.forEach((b)=>binaryString += String.fromCharCode(b));
+      const base64Image = btoa(binaryString);
+      
+      console.log("No manual labels or image_url provided for non-extraction mode — calling Vision API.");
       const visionPayload = {
         contents: [
           {
@@ -103,15 +110,16 @@ serve(async (req)=>{
                 text: `Input: An image containing one or more grocery items.
 
 Instructions:
-1. Detect Grocery Items: Identify all distinct grocery items visible in the image.
-2. Classify Items: For each detected item, provide a general classification label (e.g., "Apple", "Milk Carton").
-3. Determine Bounding Boxes: Provide bounding box coordinates in normalized format (x_min, y_min, x_max, y_max).
-4. Output Format: Return results in valid JSON, no extra text.
+1. Detect Grocery Items: Identify all distinct grocery items visible in the image. For items that appear in multiples (e.g., a pack of buns, several tomatoes), attempt to count the individual units if visually discernible and include this as 'quantity'. If it's a single item, quantity is 1.
+2. Classify Items: For each detected item, provide a general classification label (e.g., "Apple", "Milk", "Bread Rolls"). Don't include information about the packaging, e.g. Milk carton, or Mayonnaise jar. We are interested in the item itself, not the container.
+3. Determine Bounding Boxes: Provide bounding box coordinates in normalized format (x_min, y_min, x_max, y_max) for each identified item or group. If quantity > 1 for a single bounding box, this box should encompass the group.
+4. Output Format: Return results in valid JSON, no extra text. Ensure 'quantity' is an integer.
 
 {
   "detected_items": [
     {
       "item_label": "string",
+      "quantity": integer, // Added quantity here
       "bounding_box": {
         "x_min": float,
         "y_min": float,
@@ -158,14 +166,59 @@ Instructions:
       }
       const visionData = await visionResp.json();
       const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const parsed = extractLabelsFromJson(visionText);
-      items = parsed.items;
-      console.log("Detected items:", parsed.labels.join(", "));
+      const parsedVisionItems = extractLabelsFromJson(visionText).items;
+      sourceItems = parsedVisionItems.map(item => ({ ...item, _source_quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1 })); // Use quantity from Vision if available
+      console.log("Raw detected items from Vision API:", sourceItems.map(i => `${i._source_quantity} ${i.item_label}`).join(", "));
+    } else {
+        // Should not happen if checks above are correct, but as a fallback
+         return new Response(JSON.stringify({
+          error: "Missing 'image_url' or 'manual_labels' in request body"
+        }), {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
     }
+
+    // **** GROUPING AND QUANTIFICATION STEP (applies to all sources) ****
+    const labelMap = new Map();
+    for (const item of sourceItems) {
+        const label = item.item_label;
+        // Use a combination of label and additional_info for more precise grouping if needed,
+        // or just label if additional_info is highly variable or less critical for grouping.
+        // For now, grouping by item_label only.
+        const groupKey = label; // Potentially: `${label}_${item.additional_info || ''}`;
+
+        const itemSourceQuantity = item._source_quantity || 1;
+
+        if (labelMap.has(groupKey)) {
+            const existing = labelMap.get(groupKey);
+            existing.totalQuantity += itemSourceQuantity;
+            // Decide on merging strategy for additional_info or bounding_box if necessary.
+            // Default: keep first item's details.
+        } else {
+            // Create a new object for the map, removing _source_quantity
+            const { _source_quantity, ...representativeItemDetails } = item;
+            labelMap.set(groupKey, {
+                representativeItem: representativeItemDetails, // This includes bounding_box, additional_info
+                totalQuantity: itemSourceQuantity
+            });
+        }
+    }
+
+    let items = Array.from(labelMap.values()).map(group => ({
+        ...group.representativeItem,
+        quantity: group.totalQuantity // This is the final, summed quantity
+    }));
+
+    console.log("Processed items (after grouping):", items.map(i => `${i.quantity} ${i.item_label}${i.additional_info ? ' (' + i.additional_info + ')' : ''}`).join(", "));
+    
     // If only extraction requested
     if (mode === "extract_only") {
       return new Response(JSON.stringify({
-        items
+        items // items now include quantity
       }), {
         status: 200,
         headers: {
@@ -177,7 +230,7 @@ Instructions:
     // If no items, return early
     if (items.length === 0) {
       return new Response(JSON.stringify({
-        items,
+        items, // items is an empty array
         recipe: "Could not generate recipe: No ingredients identified."
       }), {
         status: 200,
@@ -189,7 +242,7 @@ Instructions:
     }
     // Build ingredient text
     const ingredientText = items.map((i)=>{
-      let txt = i.item_label;
+      let txt = `${i.quantity > 1 ? i.quantity + " " : ""}${i.item_label}`;
       if (i.additional_info) txt += ` (${i.additional_info})`;
       return txt;
     }).join(", ");

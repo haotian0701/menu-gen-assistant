@@ -32,6 +32,7 @@ class ExtractionPage extends StatefulWidget {
 class _ExtractionPageState extends State<ExtractionPage> {
   List<Map<String, dynamic>>? detectedItems;
   bool isLoading = true;
+  String? errorMessage;
 
   /// Track how many times retried
   int _retryCount = 0;
@@ -45,6 +46,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
   Future<void> _fetchDetectedItems() async {
     setState(() {
       isLoading = true;
+      errorMessage = null;
     });
 
     final supabase = Supabase.instance.client;
@@ -87,10 +89,12 @@ class _ExtractionPageState extends State<ExtractionPage> {
       final data = jsonDecode(resp.body);
       final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
 
-      // drop only null
-      final filtered = items.where((it) => it['bounding_box'] is Map).toList();
+      // Backend now returns items with quantity, pre-grouped.
+      // Filter out items that might lack a bounding box if necessary, though backend should handle this.
+      final filtered = items.where((it) => it['bounding_box'] is Map || it['bounding_box'] == null).toList();
 
-      // If no boxes on the first pass, retry once more automatically
+
+      // If no items on the first pass, retry once more automatically
       if (filtered.isEmpty && _retryCount < 1) {
         _retryCount++;
         debugPrint('No items detected—retrying extraction (#$_retryCount)');
@@ -102,6 +106,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
         isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error fetching items: $e');
       // On any error, auto-retry once
       if (_retryCount < 1) {
         _retryCount++;
@@ -109,10 +114,15 @@ class _ExtractionPageState extends State<ExtractionPage> {
         return _fetchDetectedItems();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching items: $e')),
-        );
-        Navigator.of(context).pop();
+        setState(() {
+          isLoading = false;
+          errorMessage = 'Error fetching items: $e';
+        });
+        // Optionally, show snackbar or allow manual retry via button
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(content: Text('Error fetching items: $e')),
+        // );
+        // Navigator.of(context).pop(); // Don't pop, show error and retry button
       }
     }
   }
@@ -155,14 +165,17 @@ class _ExtractionPageState extends State<ExtractionPage> {
       final yMax = (box['y_max'] as num?)?.toDouble() ?? 0.0;
       final label = it['item_label'] as String? ?? '';
       final add = it['additional_info'] as String? ?? '';
+      final quantity = it['quantity'] as int? ?? 1;
       final hasAdd = add.isNotEmpty;
+
+      final displayLabel = quantity > 1 ? '$quantity $label' : label;
 
       final left = offsetX + xMin * renderedW;
       final top = offsetY + yMin * renderedH;
       final wBox = (xMax - xMin) * renderedW;
       final hBox = (yMax - yMin) * renderedH;
 
-      final chipW = label.length * 8.0 + 40.0;
+      final chipW = (displayLabel.length * 7.0 + (hasAdd ? add.length * 5.0 : 0) + 24.0).clamp(60.0, containerW * 0.8); // Adjusted width calculation
       final chipH = baseH + (hasAdd ? extraH : 0) + padV * 2;
 
       double cx = left + wBox / 2 - chipW / 2;
@@ -204,10 +217,11 @@ class _ExtractionPageState extends State<ExtractionPage> {
                           autofocus: true,
                           decoration: const InputDecoration(labelText: 'Item Label'),
                         ),
+                        // Quantity is not editable here, it's a result of grouping
                         if (!showAdditional)
-                          IconButton(
+                          TextButton.icon( // Changed to TextButton for better UI
                             icon: const Icon(Icons.add_circle_outline),
-                            tooltip: 'Add details (e.g., amount)',
+                            label: const Text('Add details'),
                             onPressed: () => setSt(() => showAdditional = true),
                           ),
                         if (showAdditional)
@@ -252,12 +266,19 @@ class _ExtractionPageState extends State<ExtractionPage> {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 3,
+                    offset: const Offset(1, 1),
+                  )
+                ]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    label,
+                    displayLabel, // Use displayLabel
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
@@ -293,6 +314,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
               'item_label': it['item_label'],
               'additional_info': it['additional_info'],
               'bounding_box': it['bounding_box'],
+              'quantity': it['quantity'], // Pass quantity
             })
         .toList();
 
@@ -316,7 +338,37 @@ class _ExtractionPageState extends State<ExtractionPage> {
       appBar: AppBar(title: const Text('Review & Edit Items')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          // If done loading but zero items: show a retry button
+          // If done loading but error: show error and retry
+          : errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 48),
+                        const SizedBox(height: 16),
+                        Text('Failed to load items.', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        Text(errorMessage!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try Again'),
+                          onPressed: () {
+                            _retryCount = 0; // Reset retry count for manual retry
+                            _fetchDetectedItems();
+                          },
+                        ),
+                        TextButton(
+                          child: const Text('Go Back'),
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                      ],
+                    ),
+                  ),
+                )
+          // If done loading but zero items: show a message and retry button
           : (detectedItems != null && detectedItems!.isEmpty)
               ? Center(
                   child: Column(
