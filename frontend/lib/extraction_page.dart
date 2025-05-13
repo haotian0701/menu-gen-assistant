@@ -15,6 +15,7 @@ class ExtractionPage extends StatefulWidget {
   final String dietaryGoal;
   final String mealTime;
   final String amountPeople;
+  final String restrictDiet;
 
   const ExtractionPage({
     Key? key,
@@ -23,6 +24,7 @@ class ExtractionPage extends StatefulWidget {
     required this.dietaryGoal,
     required this.mealTime,
     required this.amountPeople,
+    required this.restrictDiet,
   }) : super(key: key);
 
   @override
@@ -78,6 +80,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
               'mode': 'extract_only',
               'meal_time': widget.mealTime,
               'amount_people': widget.amountPeople,
+              'restrict_diet': widget.restrictDiet,
             }),
           )
           .timeout(const Duration(seconds: 60));
@@ -326,6 +329,8 @@ class _ExtractionPageState extends State<ExtractionPage> {
           dietaryGoal: widget.dietaryGoal,
           mealTime: widget.mealTime,
           amountPeople: widget.amountPeople,
+          restrictDiet: widget.restrictDiet,
+
           manualLabels: labels,
         ),
       ),
