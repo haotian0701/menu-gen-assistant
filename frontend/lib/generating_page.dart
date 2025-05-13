@@ -13,6 +13,7 @@ class GeneratingPage extends StatefulWidget {
   final String dietaryGoal;
   final String? mealTime;
   final String? amountPeople;
+  final String? restrictDiet;
 
   final List<Map<String, dynamic>>? manualLabels;
 
@@ -24,6 +25,7 @@ class GeneratingPage extends StatefulWidget {
     this.mealTime,
     this.amountPeople,
     this.manualLabels,
+    this.restrictDiet,
   }) : super(key: key);
 
   @override
@@ -58,8 +60,10 @@ class _GeneratingPageState extends State<GeneratingPage> {
         'meal_type': widget.mealType,
         'dietary_goal': widget.dietaryGoal,
       };
-      if (widget.mealTime != null)    body['meal_time']      = widget.mealTime;
-      if (widget.amountPeople!= null) body['amount_people']  = widget.amountPeople;
+      if (widget.mealTime != null)     body['meal_time']      = widget.mealTime;
+      if (widget.amountPeople!= null)  body['amount_people']  = widget.amountPeople;
+      if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
+
       
       // manualLabels from ExtractionPage now include 'quantity'
       if (widget.manualLabels != null) {
