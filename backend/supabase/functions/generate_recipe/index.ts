@@ -251,6 +251,8 @@ Instructions:
 - **Ingredients Available:** ${ingredientText}
 - **Meal Type:** ${meal_type}
 - **Dietary Goal:** ${dietary_goal}
+- **Restriction:** ${restrict_diet}
+
 
 **Output Format Instructions:**
 Format the entire response as a single block of HTML. Do NOT include \`\`\`html fences.
