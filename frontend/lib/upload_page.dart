@@ -33,6 +33,9 @@ class _UploadImagePageState extends State<UploadImagePage> {
   String _selectedTime = 'fast';
   String _selectedPeople = '2';
 
+  final _restrictDiet = ['None', 'Vegan', 'Vegetarian', 'Gluten-free'];
+  String _selectedDiet = 'None';
+
   Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     if (result == null || result.files.isEmpty) return;
@@ -73,6 +76,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
           dietaryGoal: _selectedGoal,
           mealTime: _selectedTime,
           amountPeople: _selectedPeople,
+          restrictDiet: _selectedDiet,
         ),
       ),
     );
@@ -184,6 +188,23 @@ class _UploadImagePageState extends State<UploadImagePage> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Restriction:'),
+                          _buildDropdown(
+                            _selectedDiet,
+                            _restrictDiet,
+                            (v) => setState(() => _selectedDiet = v!),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                
                   ],
                 ),
                 const SizedBox(height: 20),
