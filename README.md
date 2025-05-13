@@ -6,10 +6,16 @@ A Flutter + Supabase project that allows users to:
 - Upload images of food
 - Store image links and metadata to a Supabase database
 
+# Presentation
 
-Sources:
+Find our slide deck here:  
+[View slides (PDF)](presentation_stuff/pres.pdf)
+
+## Sources:
 - Gemini API
 - Youtube
-- Food Data: https://fdc.nal.usda.gov/download-datasets
+- Flutter
+- Supabase
+
 
 ---
