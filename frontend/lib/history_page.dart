@@ -112,12 +112,23 @@ class _HistoryPageState extends State<HistoryPage> {
                             final recipeHtml = rec['recipe_html'] as String;
                             final items = (rec['detected_items'] as List)
                                 .cast<Map<String, dynamic>>();
+                            // Retrieve the additional required fields from the record
+                            // Provide default values if they might be null in the database
+                            final mealTime = rec['meal_time'] as String? ?? ''; // Correctly read
+                            final amountPeople = rec['amount_people'] as String? ?? ''; // Correctly read
+                            final restrictDiet = rec['restrict_diet'] as String? ?? ''; // Will default to '' if column is missing
+
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => RecipePage(
                                   imageUrl: imageUrl,
                                   recipe: recipeHtml,
                                   detectedItems: items,
+                                  mealType: mealType, 
+                                  dietaryGoal: dietaryGoal, 
+                                  mealTime: mealTime,
+                                  amountPeople: amountPeople,
+                                  restrictDiet: restrictDiet, // This will be '' if not in DB
                                 ),
                               ),
                             );

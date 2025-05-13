@@ -6,6 +6,9 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// Import ExtractionPage
+import 'extraction_page.dart';
+
 /// Helper to strip HTML tags when sharing as plain text
 String _stripHtml(String htmlString) {
   final htmlRegex = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
@@ -29,12 +32,24 @@ class RecipePage extends StatefulWidget {
   final List<Map<String, dynamic>> detectedItems;
   final String? videoUrl; // Optional YouTube link
 
+  // Add these fields to store original parameters for regeneration
+  final String mealType;
+  final String dietaryGoal;
+  final String mealTime;
+  final String amountPeople;
+  final String restrictDiet;
+
   const RecipePage({
     Key? key,
     required this.imageUrl,
     required this.recipe,
     required this.detectedItems,
     this.videoUrl,
+    required this.mealType, // Added
+    required this.dietaryGoal, // Added
+    required this.mealTime, // Added
+    required this.amountPeople, // Added
+    required this.restrictDiet, // Added
   }) : super(key: key);
 
   @override
@@ -188,7 +203,7 @@ class _RecipePageState extends State<RecipePage> {
 
           // Render recipe HTML
           Expanded(
-            flex: 3, 
+            flex: 3,
             child: SingleChildScrollView(
               child: Padding( // Add Padding around the Column
                 padding: const EdgeInsets.all(16.0),
@@ -231,7 +246,7 @@ class _RecipePageState extends State<RecipePage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 20), 
+                    const SizedBox(height: 20),
                     // Share button - moved inside the Column and Padding
                     TextButton.icon(
                       icon: const Icon(Icons.share),
@@ -239,6 +254,30 @@ class _RecipePageState extends State<RecipePage> {
                       onPressed: () {
                         final shareContent = _stripHtml(_cleanedRecipe);
                         Share.share(shareContent, subject: _pageTitle);
+                      },
+                    ),
+                    const SizedBox(height: 10), // Space between buttons
+                    TextButton.icon( // Regenerate Recipe Button
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Regenerate Recipe'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ExtractionPage(
+                              imageUrl: widget.imageUrl,
+                              initialDetectedItems: List<Map<String, dynamic>>.from(
+                                widget.detectedItems.map((item) => Map<String, dynamic>.from(item))
+                              ),
+                              isRegenerating: true,
+                              // Pass current recipe options to pre-fill in ExtractionPage
+                              initialMealType: widget.mealType,
+                              initialDietaryGoal: widget.dietaryGoal,
+                              initialMealTime: widget.mealTime,
+                              initialAmountPeople: widget.amountPeople,
+                              initialRestrictDiet: widget.restrictDiet.isEmpty ? 'None' : widget.restrictDiet, // Handle empty string to 'None'
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ],

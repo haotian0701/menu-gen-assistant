@@ -11,20 +11,27 @@ import 'generating_page.dart';
 
 class ExtractionPage extends StatefulWidget {
   final String imageUrl;
-  final String mealType;
-  final String dietaryGoal;
-  final String mealTime;
-  final String amountPeople;
-  final String restrictDiet;
+  final List<Map<String, dynamic>>? initialDetectedItems;
+  final bool isRegenerating;
+
+  // Fields for initial options (passed during regeneration or set to defaults)
+  final String? initialMealType;
+  final String? initialDietaryGoal;
+  final String? initialMealTime;
+  final String? initialAmountPeople;
+  final String? initialRestrictDiet;
 
   const ExtractionPage({
     Key? key,
     required this.imageUrl,
-    required this.mealType,
-    required this.dietaryGoal,
-    required this.mealTime,
-    required this.amountPeople,
-    required this.restrictDiet,
+    this.initialDetectedItems,
+    this.isRegenerating = false,
+    // Added for regeneration flow to pre-fill options
+    this.initialMealType,
+    this.initialDietaryGoal,
+    this.initialMealTime,
+    this.initialAmountPeople,
+    this.initialRestrictDiet,
   }) : super(key: key);
 
   @override
@@ -35,14 +42,42 @@ class _ExtractionPageState extends State<ExtractionPage> {
   List<Map<String, dynamic>>? detectedItems;
   bool isLoading = true;
   String? errorMessage;
-
-  /// Track how many times retried
   int _retryCount = 0;
+
+  // State variables for dropdowns
+  late String _selectedMeal;
+  late String _selectedGoal;
+  late String _selectedTime;
+  late String _selectedPeople;
+  late String _selectedDiet;
+
+  // Options for dropdowns
+  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
+  final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
+  final _mealTimeOptions = ['fast', 'medium', 'long'];
+  final _amountPeopleOptions = ['1', '2', '4', '6+']; // Added 6+ as an example
+  final _restrictDietOptions = ['None', 'Vegan', 'Vegetarian', 'Gluten-free', 'Lactose-free'];
+
 
   @override
   void initState() {
     super.initState();
-    _fetchDetectedItems();
+
+    // Initialize selected options
+    _selectedMeal = widget.initialMealType ?? _mealTypes.first;
+    _selectedGoal = widget.initialDietaryGoal ?? _dietaryGoals.first;
+    _selectedTime = widget.initialMealTime ?? _mealTimeOptions.first;
+    _selectedPeople = widget.initialAmountPeople ?? _amountPeopleOptions.first;
+    _selectedDiet = widget.initialRestrictDiet ?? _restrictDietOptions.first;
+
+    if (widget.isRegenerating && widget.initialDetectedItems != null && widget.initialDetectedItems!.isNotEmpty) {
+      detectedItems = List<Map<String, dynamic>>.from(
+        widget.initialDetectedItems!.map((item) => Map<String, dynamic>.from(item))
+      );
+      isLoading = false;
+    } else {
+      _fetchDetectedItems();
+    }
   }
 
   Future<void> _fetchDetectedItems() async {
@@ -54,10 +89,12 @@ class _ExtractionPageState extends State<ExtractionPage> {
     final supabase = Supabase.instance.client;
     final accessToken = supabase.auth.currentSession?.accessToken;
     if (accessToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Auth error. Please log in again.')),
-      );
-      Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Auth error. Please log in again.')),
+        );
+        Navigator.of(context).pop();
+      }
       return;
     }
 
@@ -66,6 +103,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
     );
 
     try {
+      // When fetching items, we use the *currently selected* options on this page,
+      // or defaults if it's the first load from upload page.
+      // The backend 'extract_only' mode might not use all these, but good to be consistent.
       final resp = await http
           .post(
             uri,
@@ -75,12 +115,12 @@ class _ExtractionPageState extends State<ExtractionPage> {
             },
             body: jsonEncode({
               'image_url': widget.imageUrl,
-              'meal_type': widget.mealType,
-              'dietary_goal': widget.dietaryGoal,
+              'meal_type': _selectedMeal,       // Use state variable
+              'dietary_goal': _selectedGoal,    // Use state variable
               'mode': 'extract_only',
-              'meal_time': widget.mealTime,
-              'amount_people': widget.amountPeople,
-              'restrict_diet': widget.restrictDiet,
+              'meal_time': _selectedTime,       // Use state variable
+              'amount_people': _selectedPeople, // Use state variable
+              'restrict_diet': _selectedDiet,   // Use state variable
             }),
           )
           .timeout(const Duration(seconds: 60));
@@ -101,16 +141,18 @@ class _ExtractionPageState extends State<ExtractionPage> {
       if (filtered.isEmpty && _retryCount < 1) {
         _retryCount++;
         debugPrint('No items detected—retrying extraction (#$_retryCount)');
+        // Ensure fetch uses current dropdown values if retrying
         return _fetchDetectedItems();
       }
 
-      setState(() {
-        detectedItems = filtered;
-        isLoading = false;
-      });
+      if(mounted) {
+        setState(() {
+          detectedItems = filtered;
+          isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching items: $e');
-      // On any error, auto-retry once
       if (_retryCount < 1) {
         _retryCount++;
         debugPrint('Error fetching items, retrying (#$_retryCount): $e');
@@ -312,12 +354,18 @@ class _ExtractionPageState extends State<ExtractionPage> {
   }
 
   void _onGeneratePressed() {
+    if (detectedItems == null || detectedItems!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items to generate a recipe from.')),
+      );
+      return;
+    }
     final labels = detectedItems!
         .map((it) => {
               'item_label': it['item_label'],
               'additional_info': it['additional_info'],
               'bounding_box': it['bounding_box'],
-              'quantity': it['quantity'], // Pass quantity
+              'quantity': it['quantity'],
             })
         .toList();
 
@@ -325,25 +373,74 @@ class _ExtractionPageState extends State<ExtractionPage> {
       MaterialPageRoute(
         builder: (_) => GeneratingPage(
           imageUrl: widget.imageUrl,
-          mealType: widget.mealType,
-          dietaryGoal: widget.dietaryGoal,
-          mealTime: widget.mealTime,
-          amountPeople: widget.amountPeople,
-          restrictDiet: widget.restrictDiet,
-
+          // Pass the selected options from this page's state
+          mealType: _selectedMeal,
+          dietaryGoal: _selectedGoal,
+          mealTime: _selectedTime,
+          amountPeople: _selectedPeople,
+          restrictDiet: _selectedDiet == 'None' ? '' : _selectedDiet, // Handle 'None' case
           manualLabels: labels,
         ),
       ),
     );
   }
 
+  // Helper for dropdowns (can be defined here or imported if made common)
+  Widget _buildDropdown(
+    String currentValue,
+    List<String> items,
+    void Function(String?) onChanged, {
+    String? hintText,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: currentValue,
+          hint: hintText != null ? Text(hintText) : null,
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Review & Edit Items')),
+      appBar: AppBar(
+        title: Text(widget.isRegenerating ? 'Adjust Items & Regenerate' : 'Review & Edit Items'),
+        leading: widget.isRegenerating
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back to Recipe',
+                onPressed: () {
+                  // Check if there's a route to pop to.
+                  // If ExtractionPage was pushed directly (e.g. from UploadPage then RecipePage then here),
+                  // simple pop works.
+                  // If it replaced the stack somehow, this might need more robust navigation.
+                  // For now, assuming it was pushed onto RecipePage.
+                  if (Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
+                  // else {
+                  //  Fallback if it can't pop (e.g., if it's the first page in a regeneration flow somehow)
+                  //  Consider navigating to a default page or handling as an error.
+                  //  For this use case, pop should generally be fine.
+                  // }
+                },
+              )
+            : null, // Shows default back button if pushed onto stack and not regenerating (e.g. from UploadPage)
+      ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          // If done loading but error: show error and retry
           : errorMessage != null
               ? Center(
                   child: Padding(
@@ -373,27 +470,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
                     ),
                   ),
                 )
-          // If done loading but zero items: show a message and retry button
-          : (detectedItems != null && detectedItems!.isEmpty)
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('No items detected.'),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          _retryCount = 0;
-                          _fetchDetectedItems();
-                        },
-                        child: const Text('Retry Extraction'),
-                      ),
-                    ],
-                  ),
-                )
-              // Otherwise show the normal review UI
-              : Column(
+              : Column( // Main content column
                   children: [
+                    // Image and Chips section (Expanded)
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
@@ -438,7 +517,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                       fit: BoxFit.contain,
                                     ),
                                   ),
-                                  if (detectedItems != null)
+                                  if (detectedItems != null && detectedItems!.isNotEmpty)
                                     ..._buildEditableChips(
                                       detectedItems!,
                                       cw,
@@ -447,7 +526,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                       rh,
                                       ox,
                                       oy,
-                                    ),
+                                    )
+                                  else if (detectedItems != null && detectedItems!.isEmpty && !isLoading)
+                                    const Center(child: Text('No items detected. Edit or retry.')),
                                 ],
                               );
                             },
@@ -455,12 +536,76 @@ class _ExtractionPageState extends State<ExtractionPage> {
                         },
                       ),
                     ),
+
+                    // Options Section (Not expanded, scrollable if needed)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: SingleChildScrollView( // Added for smaller screens
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Recipe Options:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Meal Type:')),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(_selectedMeal, _mealTypes, (val) => setState(() => _selectedMeal = val!)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Dietary Goal:')),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(_selectedGoal, _dietaryGoals, (val) => setState(() => _selectedGoal = val!)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Meal Time:')),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(_selectedTime, _mealTimeOptions, (val) => setState(() => _selectedTime = val!)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Amount of People:')),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(_selectedPeople, _amountPeopleOptions, (val) => setState(() => _selectedPeople = val!)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Dietary Restrictions:')),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(_selectedDiet, _restrictDietOptions, (val) => setState(() => _selectedDiet = val!)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Generate Button
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                        onPressed:
-                            (detectedItems == null || detectedItems!.isEmpty) ? null : _onGeneratePressed,
+                        onPressed: (detectedItems == null || detectedItems!.isEmpty) ? null : _onGeneratePressed,
                         child: const Text('Generate Recipe'),
                       ),
                     ),

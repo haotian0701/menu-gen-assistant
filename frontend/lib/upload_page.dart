@@ -23,19 +23,6 @@ class _UploadImagePageState extends State<UploadImagePage> {
   String? _uploadedUrl;
   bool _loading = false;
 
-  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
-  final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
-  String _selectedMeal = 'dinner';
-  String _selectedGoal = 'normal';
-
-  final _mealTime = ['fast', 'medium', 'long'];
-  final _amountPeople = ['1', '2', '4'];
-  String _selectedTime = 'fast';
-  String _selectedPeople = '2';
-
-  final _restrictDiet = ['None', 'Vegan', 'Vegetarian', 'Gluten-free'];
-  String _selectedDiet = 'None';
-
   Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     if (result == null || result.files.isEmpty) return;
@@ -72,11 +59,6 @@ class _UploadImagePageState extends State<UploadImagePage> {
       MaterialPageRoute(
         builder: (_) => ExtractionPage(
           imageUrl: _uploadedUrl!,
-          mealType: _selectedMeal,
-          dietaryGoal: _selectedGoal,
-          mealTime: _selectedTime,
-          amountPeople: _selectedPeople,
-          restrictDiet: _selectedDiet,
         ),
       ),
     );
@@ -99,147 +81,64 @@ class _UploadImagePageState extends State<UploadImagePage> {
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              ElevatedButton(
-                onPressed: _loading ? null : _pickAndUpload,
-                child: _loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Select & Upload Image'),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons take full width
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              if (_fileBytes != null) ...[
-                const SizedBox(height: 16),
-                Image.memory(_fileBytes!, height: 200),
-             //   const SizedBox(height: 8),
-             //   SelectableText(
-             //     _uploadedUrl!,
-             //     style: Theme.of(context).textTheme.bodySmall,
-             //   ),
-              ],
-              if (_uploadedUrl != null) ...[
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Meal:'),
-                          _buildDropdown(
-                            _selectedMeal,
-                            _mealTypes,
-                            (v) => setState(() => _selectedMeal = v!),
-                          ),
-                        ],
+              onPressed: _loading ? null : _pickAndUpload,
+              child: _loading
+                  ? const SizedBox(
+                      height: 24, // Consistent height for indicator
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Flexible(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Goal:'),
-                          _buildDropdown(
-                            _selectedGoal,
-                            _dietaryGoals,
-                            (v) => setState(() => _selectedGoal = v!),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    )
+                  : const Text('Select & Upload Image', style: TextStyle(fontSize: 16)),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                  color: _fileBytes == null ? Colors.grey.shade50 : Colors.transparent,
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Time:'),
-                          _buildDropdown(
-                            _selectedTime,
-                            _mealTime,
-                            (v) => setState(() => _selectedTime = v!),
-                          ),
-                        ],
+                child: _fileBytes != null
+                    ? ClipRRect( // Ensures image respects border radius
+                        borderRadius: BorderRadius.circular(7.0), // Slightly less than container
+                        child: Image.memory(
+                          _fileBytes!,
+                          fit: BoxFit.contain, // Scales down to fit, preserving aspect ratio
+                        ),
+                      )
+                    : const Center(
+                        child: Text(
+                          'Image preview will appear here',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Flexible(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('People:'),
-                          _buildDropdown(
-                            _selectedPeople,
-                            _amountPeople,
-                            (v) => setState(() => _selectedPeople = v!),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Flexible(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Restriction:'),
-                          _buildDropdown(
-                            _selectedDiet,
-                            _restrictDiet,
-                            (v) => setState(() => _selectedDiet = v!),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                
-                  ],
+              ),
+            ),
+            if (_uploadedUrl != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _onIdentifyPressed,
-                  child: const Text('Identify Items'),
-                ),
-              ],
+                onPressed: _onIdentifyPressed,
+                child: const Text('Identify Items & Set Options', style: TextStyle(fontSize: 16)),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
   }
-}
-
-Widget _buildDropdown(
-  String value,
-  List<String> items,
-  void Function(String?) onChanged,
-) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-    decoration: BoxDecoration(
-      color: Colors.grey.shade100,
-      border: Border.all(color: Colors.grey.shade400),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        isExpanded: true,
-        value: value,
-        items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-        onChanged: onChanged,
-      ),
-    ),
-  );
 }

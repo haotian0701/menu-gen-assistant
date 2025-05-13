@@ -91,15 +91,16 @@ class _GeneratingPageState extends State<GeneratingPage> {
       // 'items' received from backend already have 'quantity'
       // Write history in Supabase.
       await supabase.from('history').insert({
-        'user_id'     : supabase.auth.currentUser!.id,
-        'image_url'   : widget.imageUrl,
-        'meal_type'   : widget.mealType,
-        'dietary_goal': widget.dietaryGoal,
-        'detected_items': items, // items already include quantity
-        'recipe_html' : recipe,
-        'video_url'   : videoUrl,
-        'meal_time'   : widget.mealTime, // Also save these if available
-        'amount_people': widget.amountPeople,
+        'user_id'       : supabase.auth.currentUser!.id,
+        'image_url'     : widget.imageUrl,
+        'meal_type'     : widget.mealType,
+        'dietary_goal'  : widget.dietaryGoal,
+        'detected_items': items, 
+        'recipe_html'   : recipe,
+        'video_url'     : videoUrl,
+        'amount_people' : widget.amountPeople,
+        'meal_time'     : widget.mealTime,       // Ensure this is being saved
+        'restrict_diet' : widget.restrictDiet,  // Ensure this is being saved
       });
 
       if (!mounted) return;
@@ -110,6 +111,12 @@ class _GeneratingPageState extends State<GeneratingPage> {
             recipe:        recipe,
             detectedItems: items,
             videoUrl:      videoUrl,
+            // Pass these parameters to RecipePage
+            mealType: widget.mealType,
+            dietaryGoal: widget.dietaryGoal,
+            mealTime: widget.mealTime ?? '', // Ensure non-null, provide default if necessary
+            amountPeople: widget.amountPeople ?? '', // Ensure non-null
+            restrictDiet: widget.restrictDiet ?? '', // Ensure non-null
           ),
         ),
       );
