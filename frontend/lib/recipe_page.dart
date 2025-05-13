@@ -268,6 +268,30 @@ class _RecipePageState extends State<RecipePage> {
                         );
                       },
                     ),
+                    const SizedBox(height: 10), // Added for spacing
+                    ElevatedButton.icon( // New Re-generate Button
+                      icon: const Icon(Icons.edit_note),
+                      label: const Text('Refine & Re-generate'),
+                      // style: ElevatedButton.styleFrom( // Removed explicit styling to use default
+                      //   backgroundColor: Colors.orangeAccent,
+                      // ),
+                      onPressed: () {
+                        Navigator.of(context).pushReplacement( // Or push, depending on desired backstack behavior
+                          MaterialPageRoute(
+                            builder: (_) => ExtractionPage(
+                              imageUrl: widget.imageUrl,
+                              initialDetectedItems: widget.detectedItems,
+                              isRegenerating: true,
+                              initialMealType: widget.mealType,
+                              initialDietaryGoal: widget.dietaryGoal,
+                              initialMealTime: widget.mealTime,
+                              initialAmountPeople: widget.amountPeople,
+                              initialRestrictDiet: widget.restrictDiet,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     if (!isLoggedIn) ...[ // Prompt to log in if not logged in
                       const SizedBox(height: 20),
                       Card(

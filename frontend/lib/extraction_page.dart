@@ -69,7 +69,17 @@ class _ExtractionPageState extends State<ExtractionPage> {
     _selectedGoal = widget.initialDietaryGoal ?? _dietaryGoals.first;
     _selectedTime = widget.initialMealTime ?? _mealTimeOptions.first;
     _selectedPeople = widget.initialAmountPeople ?? _amountPeopleOptions.first;
-    _selectedDiet = widget.initialRestrictDiet ?? _restrictDietOptions.first;
+    
+    // Correctly initialize _selectedDiet
+    // If initialRestrictDiet is null, empty, or not a valid option, default to "None".
+    // Otherwise, use the provided initialRestrictDiet.
+    if (widget.initialRestrictDiet != null &&
+        widget.initialRestrictDiet!.isNotEmpty &&
+        _restrictDietOptions.contains(widget.initialRestrictDiet)) {
+      _selectedDiet = widget.initialRestrictDiet!;
+    } else {
+      _selectedDiet = 'None'; // Default for null, empty, or unrecognized values
+    }
 
     if (widget.isRegenerating && widget.initialDetectedItems != null && widget.initialDetectedItems!.isNotEmpty) {
       detectedItems = List<Map<String, dynamic>>.from(
