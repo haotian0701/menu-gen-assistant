@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'generating_page.dart';
+import 'account_icon_button.dart'; // Import the new widget
 
 class ExtractionPage extends StatefulWidget {
   final String imageUrl;
@@ -86,41 +87,37 @@ class _ExtractionPageState extends State<ExtractionPage> {
       errorMessage = null;
     });
 
-    final supabase = Supabase.instance.client;
-    final accessToken = supabase.auth.currentSession?.accessToken;
-    if (accessToken == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Auth error. Please log in again.')),
-        );
-        Navigator.of(context).pop();
-      }
-      return;
-    }
+    final supabaseInstance = Supabase.instance; // Get the Supabase instance
+    final client = supabaseInstance.client; // Get the Supabase client instance
+    final session = client.auth.currentSession;
+    final accessToken = session?.accessToken; 
+    final anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
+
+    // No longer need to check token for login status here for the call itself
 
     final uri = Uri.parse(
       'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
     );
 
     try {
-      // When fetching items, we use the *currently selected* options on this page,
-      // or defaults if it's the first load from upload page.
-      // The backend 'extract_only' mode might not use all these, but good to be consistent.
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${accessToken ?? anonKey}',
+      };
+
       final resp = await http
           .post(
             uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $accessToken',
-            },
-            body: jsonEncode({
+            headers: headers,
+            body: jsonEncode(<String, dynamic>{
               'image_url': widget.imageUrl,
-              'meal_type': _selectedMeal,       // Use state variable
-              'dietary_goal': _selectedGoal,    // Use state variable
-              'mode': 'extract_only',
-              'meal_time': _selectedTime,       // Use state variable
-              'amount_people': _selectedPeople, // Use state variable
-              'restrict_diet': _selectedDiet,   // Use state variable
+              'mode': 'extract_only', // Explicitly set mode for extraction
+              // Pass current dropdown selections if backend uses them for extraction guidance
+              'meal_type': _selectedMeal,
+              'dietary_goal': _selectedGoal,
+              'meal_time': _selectedTime,
+              'amount_people': _selectedPeople,
+              'restrict_diet': _selectedDiet == 'None' ? '' : _selectedDiet,
             }),
           )
           .timeout(const Duration(seconds: 60));
@@ -371,14 +368,13 @@ class _ExtractionPageState extends State<ExtractionPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GeneratingPage(
+        builder: (_) => GeneratingPage( // Pass all selected options
           imageUrl: widget.imageUrl,
-          // Pass the selected options from this page's state
           mealType: _selectedMeal,
           dietaryGoal: _selectedGoal,
           mealTime: _selectedTime,
           amountPeople: _selectedPeople,
-          restrictDiet: _selectedDiet == 'None' ? '' : _selectedDiet, // Handle 'None' case
+          restrictDiet: _selectedDiet == 'None' ? null : _selectedDiet, // Pass null if 'None'
           manualLabels: labels,
         ),
       ),
@@ -416,28 +412,10 @@ class _ExtractionPageState extends State<ExtractionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isRegenerating ? 'Adjust Items & Regenerate' : 'Review & Edit Items'),
-        leading: widget.isRegenerating
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Back to Recipe',
-                onPressed: () {
-                  // Check if there's a route to pop to.
-                  // If ExtractionPage was pushed directly (e.g. from UploadPage then RecipePage then here),
-                  // simple pop works.
-                  // If it replaced the stack somehow, this might need more robust navigation.
-                  // For now, assuming it was pushed onto RecipePage.
-                  if (Navigator.canPop(context)) {
-                    Navigator.of(context).pop();
-                  }
-                  // else {
-                  //  Fallback if it can't pop (e.g., if it's the first page in a regeneration flow somehow)
-                  //  Consider navigating to a default page or handling as an error.
-                  //  For this use case, pop should generally be fine.
-                  // }
-                },
-              )
-            : null, // Shows default back button if pushed onto stack and not regenerating (e.g. from UploadPage)
+        title: const Text('Adjust Items & Options'), // Changed title
+        actions: const [
+          AccountIconButton(), // Add the new account icon button
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -7,7 +7,7 @@ import 'package:path/path.dart' show basename;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'extraction_page.dart';
-import 'history_page.dart';
+import 'account_icon_button.dart'; // Import the new widget
 
 class UploadImagePage extends StatefulWidget {
   const UploadImagePage({Key? key}) : super(key: key);
@@ -69,16 +69,8 @@ class _UploadImagePageState extends State<UploadImagePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Upload & Identify Items'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'Menu History',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HistoryPage()),
-              );
-            },
-          ),
+        actions: const [ // Use const for actions list if all children are const
+          AccountIconButton(), // Add the new account icon button
         ],
       ),
       body: Padding(

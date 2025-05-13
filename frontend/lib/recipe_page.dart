@@ -8,6 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Import ExtractionPage
 import 'extraction_page.dart';
+import 'account_icon_button.dart'; // Import the new widget
+import 'main.dart'; // For AuthPage
+import 'package:supabase_flutter/supabase_flutter.dart'; // For Supabase instance
 
 /// Helper to strip HTML tags when sharing as plain text
 String _stripHtml(String htmlString) {
@@ -109,9 +112,15 @@ class _RecipePageState extends State<RecipePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLoggedIn = Supabase.instance.client.auth.currentUser != null;
+
     return Scaffold(
-      appBar:
-          AppBar(title: Text(_pageTitle.isNotEmpty ? _pageTitle : 'Recipe')),
+      appBar: AppBar(
+        title: Text(_pageTitle.isNotEmpty ? _pageTitle : 'Recipe'),
+        actions: const [
+          AccountIconButton(), // Add the new account icon button
+        ],
+      ),
       body: Column(
         children: [
           // Image + overlayed chips
@@ -205,81 +214,88 @@ class _RecipePageState extends State<RecipePage> {
           Expanded(
             flex: 3,
             child: SingleChildScrollView(
-              child: Padding( // Add Padding around the Column
+              child: Padding( 
                 padding: const EdgeInsets.all(16.0),
-                child: Column( // Wrap Container and Share button in a Column
+                child: Column( 
+                  crossAxisAlignment: CrossAxisAlignment.stretch, // Make children take full width
                   children: [
-                    Container( // Apply Container styling
+                    Container( // Added Container for styling
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 1.0), 
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 1.0),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8), 
-                        borderRadius: BorderRadius.circular(12.0), 
+                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(12.0),
                       ),
                       child: Html(
                         data: _cleanedRecipe,
                         style: {
                           "h1": Style(
-                            fontSize: FontSize(
-                                Theme.of(context).textTheme.headlineSmall!.fontSize!),
-                            fontWeight: FontWeight.bold,
-                            margin: Margins.only(bottom: 10), 
+                            textAlign: TextAlign.center, 
+                            fontSize: FontSize.xxLarge,
+                            // Re-apply font styles from old version if desired, or keep current
+                            // fontWeight: FontWeight.bold, 
+                            // margin: Margins.only(bottom: 10),
                           ),
                           "h2": Style(
-                            fontSize:
-                                FontSize(Theme.of(context).textTheme.titleLarge!.fontSize!),
-                            fontWeight: FontWeight.w600,
-                            margin: Margins.only(top: 15, bottom: 5), 
+                            fontSize: FontSize.xLarge,
+                            // fontWeight: FontWeight.w600,
+                            // margin: Margins.only(top: 15, bottom: 5),
                           ),
-                          "ul": Style(margin: Margins.symmetric(vertical: 8)), 
                           "li": Style(
-                            fontSize: FontSize(
-                                Theme.of(context).textTheme.bodyMedium!.fontSize! + 1),
-                            padding: HtmlPaddings.only(left: 5),
+                            fontSize: FontSize.medium,
+                            // padding: HtmlPaddings.only(left: 5),
                           ),
-                          "p": Style(
-                            fontSize:
-                                FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
+                          "p": Style( // Added from old styling for consistency
+                            fontSize: FontSize(Theme.of(context).textTheme.bodyMedium!.fontSize!),
                             lineHeight: LineHeight.number(1.4),
-                            margin: Margins.only(bottom: 8), 
                           ),
+                        },
+                        onLinkTap: (url, _, __) async {
+                          if (url != null && await canLaunchUrl(Uri.parse(url))) {
+                            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                          }
                         },
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Share button - moved inside the Column and Padding
-                    TextButton.icon(
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
                       icon: const Icon(Icons.share),
-                      label: const Text('Share Recipe'),
+                      label: const Text('Share Recipe Text'),
                       onPressed: () {
-                        final shareContent = _stripHtml(_cleanedRecipe);
-                        Share.share(shareContent, subject: _pageTitle);
-                      },
-                    ),
-                    const SizedBox(height: 10), // Space between buttons
-                    TextButton.icon( // Regenerate Recipe Button
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Regenerate Recipe'),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ExtractionPage(
-                              imageUrl: widget.imageUrl,
-                              initialDetectedItems: List<Map<String, dynamic>>.from(
-                                widget.detectedItems.map((item) => Map<String, dynamic>.from(item))
-                              ),
-                              isRegenerating: true,
-                              // Pass current recipe options to pre-fill in ExtractionPage
-                              initialMealType: widget.mealType,
-                              initialDietaryGoal: widget.dietaryGoal,
-                              initialMealTime: widget.mealTime,
-                              initialAmountPeople: widget.amountPeople,
-                              initialRestrictDiet: widget.restrictDiet.isEmpty ? 'None' : widget.restrictDiet, // Handle empty string to 'None'
-                            ),
-                          ),
+                        Share.share(
+                          'Check out this recipe: ${_pageTitle.isNotEmpty ? _pageTitle : "Recipe"}\n\n${_stripHtml(_cleanedRecipe)}',
+                          subject: 'Recipe: ${_pageTitle.isNotEmpty ? _pageTitle : "Shared Recipe"}',
                         );
                       },
                     ),
+                    if (!isLoggedIn) ...[ // Prompt to log in if not logged in
+                      const SizedBox(height: 20),
+                      Card(
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            children: [
+                              const Text(
+                                "Want to save this recipe and access your history?",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 15),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const AuthPage()),
+                                  );
+                                },
+                                child: const Text("Log In / Sign Up"),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20), // Some spacing at the bottom
                   ],
                 ),
               ),
