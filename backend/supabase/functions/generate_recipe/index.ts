@@ -121,10 +121,10 @@ serve(async (req)=>{
                 text: `Input: An image containing one or more grocery items.
 
 Instructions:
-1. Detect Grocery Items: Identify all distinct grocery items visible in the image. For items that appear in multiples (e.g., a pack of buns, several tomatoes), attempt to count the individual units if visually discernible and include this as 'quantity'. If it's a single item, quantity is 1.
+1. Detect Grocery Items: Identify all distinct **edible** grocery items visible in the image. **Only include items that are clearly identifiable as food.** Ignore any non-food items or objects whose edibility is ambiguous. For items that appear in multiples (e.g., a pack of buns, several tomatoes), attempt to count the individual units if visually discernible and include this as 'quantity'. If it's a single item, quantity is 1.
 2. Classify Items: For each detected item, provide a general classification label (e.g., "Apple", "Milk", "Bread Rolls"). Don't include information about the packaging, e.g. Milk carton, or Mayonnaise jar. We are interested in the item itself, not the container.
 3. Determine Bounding Boxes: Provide bounding box coordinates in normalized format (x_min, y_min, x_max, y_max) for each identified item or group. If quantity > 1 for a single bounding box, this box should encompass the group.
-4. Output Format: Return results in valid JSON, no extra text. Ensure 'quantity' is an integer.
+4. Output Format: Return results in valid JSON, no extra text. Ensure 'quantity' is an integer. If no edible grocery items are confidently detected, return an empty "detected_items" array.
 
 {
   "detected_items": [
@@ -242,7 +242,7 @@ Instructions:
     if (items.length === 0) {
       return new Response(JSON.stringify({
         items, // items is an empty array
-        recipe: "Could not generate recipe: No ingredients identified."
+        recipe: "<p>Could not generate recipe: No ingredients were identified. Please try a different image or add items manually.</p>" // Enhanced message
       }), {
         status: 200,
         headers: {
@@ -295,6 +295,13 @@ The HTML should include:
 - For "Ingredients": Use <ul> and <li> for each ingredient. Include quantities as provided in "Ingredients Available".
 - For "Instructions": Use <ol> and <li> for each step.
 - <p> can be used for general notes, estimated calories, or descriptions.
+
+**Recipe Generation Rules:**
+1.  **Sensibility Check:** Create a coherent and sensible recipe.
+2.  **Ingredient Viability:**
+    *   After applying any "Strict Dietary Restriction", if fewer than two distinct usable ingredients remain, or if the remaining ingredients cannot logically form a meal for the specified "Meal Type", then DO NOT generate a recipe. Instead, output a single HTML paragraph: \`<p>A meaningful recipe cannot be generated with the available ingredients, especially after considering the dietary restrictions. Please adjust the ingredients or restrictions.</p>\`
+    *   If all "Ingredients Available" conflict with the "Strict Dietary Restriction", also use the message above.
+3.  **Quantity Consideration:** Pay attention to the "People Eating" when suggesting ingredient amounts in the "Instructions", if appropriate for the recipe.
 ${manualNote}
 
 ${restrictionHandlingInstructions}
