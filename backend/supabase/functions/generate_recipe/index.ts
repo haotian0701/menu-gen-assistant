@@ -55,7 +55,18 @@ serve(async (req)=>{
   }
   try {
     const body = await req.json();
-    const { image_url, meal_type = "dinner", dietary_goal = "normal", mode, manual_labels } = body;
+    // Ensure all relevant fields from the body are destructured
+    const { 
+      image_url, 
+      meal_type = "dinner", 
+      dietary_goal = "normal", 
+      mode, 
+      manual_labels,
+      restrict_diet, // Added
+      amount_people, // Added
+      meal_time      // Added
+    } = body;
+
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) { // Allow extract_only with manual_labels without image_url
       if (!image_url) {
         return new Response(JSON.stringify({
@@ -247,26 +258,48 @@ Instructions:
       return txt;
     }).join(", ");
     const manualNote = manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0 ? "<p><i>Note: Some labels might have been adjusted manually.</i></p>" : "";
+
+    let restrictionHandlingInstructions = "";
+    if (restrict_diet && restrict_diet.trim() !== "") {
+        restrictionHandlingInstructions = `
+**Dietary Restriction Handling:**
+- The specified dietary restriction is: **${restrict_diet}**.
+- Review the "Ingredients Available".
+- If any ingredient directly conflicts with this restriction (e.g., "Bacon" for "vegan", "Pork" for "vegetarian", "Wheat Bread" for "gluten-free"):
+    - List the conflicting ingredient in the "Ingredients" section (e.g., in an <ul><li> structure).
+    - Append a clear note *directly next to this ingredient in the list*, for example: " (excluded: conflicts with ${restrict_diet} restriction)".
+    - **Crucially, DO NOT include this conflicting ingredient in the actual recipe "Instructions" (<ol><li>) or assume it's used in the meal preparation.** Base the recipe steps *only* on the usable, non-conflicting ingredients.
+- All other non-conflicting ingredients should be used to create the recipe as usual.
+- If ALL listed "Ingredients Available" conflict with the restriction, the "Instructions" section should clearly state that a recipe cannot be generated that adheres to the restriction with the provided items. The "Ingredients" section should still list all items with their conflict notes.
+`;
+    } else {
+        restrictionHandlingInstructions = `
+**Dietary Restriction Handling:**
+- No specific dietary restrictions were provided. Prepare the recipe using all available ingredients as appropriate.
+`;
+    }
+
     const recipePrompt = `Generate a recipe based on these details:
 - **Ingredients Available:** ${ingredientText}
 - **Meal Type:** ${meal_type}
 - **Dietary Goal:** ${dietary_goal}
-- **Restriction:** ${restrict_diet}
-- **People Eating:** ${amount_people}
-- **Cooking Time:** ${meal_time}
-
+- **People Eating:** ${amount_people || 'not specified'}
+- **Preferred Cooking Time:** ${meal_time || 'not specified'}
+${restrict_diet && restrict_diet.trim() !== "" ? `- **Strict Dietary Restriction to follow:** ${restrict_diet}` : ''}
 
 **Output Format Instructions:**
-Format the entire response as a single block of HTML. Do NOT include \`\`\`html fences.
-Use:
-- <h1> for title
-- <h2> for sections ("Ingredients", "Instructions", etc.)
-- <ul>/<li> for ingredient list
-- <ol>/<li> for steps
-- <p> for notes/calories
+Format the entire response as a single block of valid HTML. Do NOT include \`\`\`html fences or any text outside the HTML structure.
+The HTML should include:
+- <h1> for the recipe title.
+- <h2> for main sections like "Ingredients", "Instructions", "Notes" (if any).
+- For "Ingredients": Use <ul> and <li> for each ingredient. Include quantities as provided in "Ingredients Available".
+- For "Instructions": Use <ol> and <li> for each step.
+- <p> can be used for general notes, estimated calories, or descriptions.
 ${manualNote}
 
-Start directly with the <h1> title.`;
+${restrictionHandlingInstructions}
+
+Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     // Call Gemini Text API
     const recipeResp = await fetch(GEMINI_TEXT_ENDPOINT, {
       method: "POST",
