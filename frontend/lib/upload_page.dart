@@ -109,11 +109,11 @@ class _UploadImagePageState extends State<UploadImagePage> {
               if (_fileBytes != null) ...[
                 const SizedBox(height: 16),
                 Image.memory(_fileBytes!, height: 200),
-                const SizedBox(height: 8),
-                SelectableText(
-                  _uploadedUrl!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+             //   const SizedBox(height: 8),
+             //   SelectableText(
+             //     _uploadedUrl!,
+             //     style: Theme.of(context).textTheme.bodySmall,
+             //   ),
               ],
               if (_uploadedUrl != null) ...[
                 const SizedBox(height: 24),
