@@ -252,6 +252,8 @@ Instructions:
 - **Meal Type:** ${meal_type}
 - **Dietary Goal:** ${dietary_goal}
 - **Restriction:** ${restrict_diet}
+- **People Eating:** ${amount_people}
+- **Cooking Time:** ${meal_time}
 
 
 **Output Format Instructions:**
