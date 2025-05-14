@@ -1,6 +1,14 @@
 // functions/generate_recipe.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+function extractRecipeTitle(html) {
+  const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+  return m ? m[1].trim() : 'Recipe';
+}
 // Helper function to extract JSON safely from potential markdown code blocks
 function extractLabelsFromJson(jsonString) {
   try {
@@ -56,18 +64,8 @@ serve(async (req)=>{
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { 
-      image_url, 
-      meal_type = "dinner", 
-      dietary_goal = "normal", 
-      mode, 
-      manual_labels,
-      restrict_diet, // Added
-      amount_people, // Added
-      meal_time      // Added
-    } = body;
-
-    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) { // Allow extract_only with manual_labels without image_url
+    const { user_id, image_url, meal_type = "dinner", dietary_goal = "normal", mode, manual_labels, restrict_diet, amount_people, meal_time } = body;
+    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
         return new Response(JSON.stringify({
           error: "Missing 'image_url' in request body"
@@ -80,9 +78,7 @@ serve(async (req)=>{
         });
       }
     }
-
     let sourceItems = []; // Raw items before grouping
-
     if (manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0) {
       console.log("Using manual labels as source.");
       sourceItems = manual_labels.map((i)=>({
@@ -92,7 +88,7 @@ serve(async (req)=>{
           // If manual labels come with a quantity, it's treated as the count for that specific entry.
           // The grouping logic below will sum these up if multiple entries have the same item_label.
           _source_quantity: typeof i?.quantity === 'number' ? i.quantity : 1
-      })).filter((i)=>i.item_label);
+        })).filter((i)=>i.item_label);
     } else if (image_url) {
       // Step 1: Download image
       const imageResp = await fetch(image_url);
@@ -111,7 +107,6 @@ serve(async (req)=>{
       let binaryString = "";
       uint8Array.forEach((b)=>binaryString += String.fromCharCode(b));
       const base64Image = btoa(binaryString);
-      
       console.log("No manual labels or image_url provided for non-extraction mode — calling Vision API.");
       const visionPayload = {
         contents: [
@@ -178,58 +173,55 @@ Instructions:
       const visionData = await visionResp.json();
       const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const parsedVisionItems = extractLabelsFromJson(visionText).items;
-      sourceItems = parsedVisionItems.map(item => ({ ...item, _source_quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1 })); // Use quantity from Vision if available
-      console.log("Raw detected items from Vision API:", sourceItems.map(i => `${i._source_quantity} ${i.item_label}`).join(", "));
+      sourceItems = parsedVisionItems.map((item)=>({
+          ...item,
+          _source_quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1
+        })); // Use quantity from Vision if available
+      console.log("Raw detected items from Vision API:", sourceItems.map((i)=>`${i._source_quantity} ${i.item_label}`).join(", "));
     } else {
-        // Should not happen if checks above are correct, but as a fallback
-         return new Response(JSON.stringify({
-          error: "Missing 'image_url' or 'manual_labels' in request body"
-        }), {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+      // Should not happen if checks above are correct, but as a fallback
+      return new Response(JSON.stringify({
+        error: "Missing 'image_url' or 'manual_labels' in request body"
+      }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-
     // **** GROUPING AND QUANTIFICATION STEP (applies to all sources) ****
     const labelMap = new Map();
-    for (const item of sourceItems) {
-        const label = item.item_label;
-        // Use a combination of label and additional_info for more precise grouping if needed,
-        // or just label if additional_info is highly variable or less critical for grouping.
-        // For now, grouping by item_label only.
-        const groupKey = label; // Potentially: `${label}_${item.additional_info || ''}`;
-
-        const itemSourceQuantity = item._source_quantity || 1;
-
-        if (labelMap.has(groupKey)) {
-            const existing = labelMap.get(groupKey);
-            existing.totalQuantity += itemSourceQuantity;
-            // Decide on merging strategy for additional_info or bounding_box if necessary.
-            // Default: keep first item's details.
-        } else {
-            // Create a new object for the map, removing _source_quantity
-            const { _source_quantity, ...representativeItemDetails } = item;
-            labelMap.set(groupKey, {
-                representativeItem: representativeItemDetails, // This includes bounding_box, additional_info
-                totalQuantity: itemSourceQuantity
-            });
-        }
+    for (const item of sourceItems){
+      const label = item.item_label;
+      // Use a combination of label and additional_info for more precise grouping if needed,
+      // or just label if additional_info is highly variable or less critical for grouping.
+      // For now, grouping by item_label only.
+      const groupKey = label; // Potentially: `${label}_${item.additional_info || ''}`;
+      const itemSourceQuantity = item._source_quantity || 1;
+      if (labelMap.has(groupKey)) {
+        const existing = labelMap.get(groupKey);
+        existing.totalQuantity += itemSourceQuantity;
+      // Decide on merging strategy for additional_info or bounding_box if necessary.
+      // Default: keep first item's details.
+      } else {
+        // Create a new object for the map, removing _source_quantity
+        const { _source_quantity, ...representativeItemDetails } = item;
+        labelMap.set(groupKey, {
+          representativeItem: representativeItemDetails,
+          totalQuantity: itemSourceQuantity
+        });
+      }
     }
-
-    let items = Array.from(labelMap.values()).map(group => ({
+    let items = Array.from(labelMap.values()).map((group)=>({
         ...group.representativeItem,
         quantity: group.totalQuantity // This is the final, summed quantity
-    }));
-
-    console.log("Processed items (after grouping):", items.map(i => `${i.quantity} ${i.item_label}${i.additional_info ? ' (' + i.additional_info + ')' : ''}`).join(", "));
-    
+      }));
+    console.log("Processed items (after grouping):", items.map((i)=>`${i.quantity} ${i.item_label}${i.additional_info ? ' (' + i.additional_info + ')' : ''}`).join(", "));
     // If only extraction requested
     if (mode === "extract_only") {
       return new Response(JSON.stringify({
-        items // items now include quantity
+        items
       }), {
         status: 200,
         headers: {
@@ -241,7 +233,7 @@ Instructions:
     // If no items, return early
     if (items.length === 0) {
       return new Response(JSON.stringify({
-        items, // items is an empty array
+        items,
         recipe: "<p>Could not generate recipe: No ingredients were identified. Please try a different image or add items manually.</p>" // Enhanced message
       }), {
         status: 200,
@@ -258,10 +250,9 @@ Instructions:
       return txt;
     }).join(", ");
     const manualNote = manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0 ? "<p><i>Note: Some labels might have been adjusted manually.</i></p>" : "";
-
     let restrictionHandlingInstructions = "";
     if (restrict_diet && restrict_diet.trim() !== "") {
-        restrictionHandlingInstructions = `
+      restrictionHandlingInstructions = `
 **Dietary Restriction Handling:**
 - The specified dietary restriction is: **${restrict_diet}**.
 - Review the "Ingredients Available".
@@ -273,12 +264,11 @@ Instructions:
 - If ALL listed "Ingredients Available" conflict with the restriction, the "Instructions" section should clearly state that a recipe cannot be generated that adheres to the restriction with the provided items. The "Ingredients" section should still list all items with their conflict notes.
 `;
     } else {
-        restrictionHandlingInstructions = `
+      restrictionHandlingInstructions = `
 **Dietary Restriction Handling:**
 - No specific dietary restrictions were provided. Prepare the recipe using all available ingredients as appropriate.
 `;
     }
-
     const recipePrompt = `Generate a recipe based on these details:
 - **Ingredients Available:** ${ingredientText}
 - **Meal Type:** ${meal_type}
@@ -368,11 +358,37 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       }
     }
     // ================================================
+    const categories = [];
+    if (meal_type && meal_type.toLowerCase() !== 'normal') {
+      categories.push(meal_type);
+    }
+    if (dietary_goal && dietary_goal.toLowerCase() !== 'normal') {
+      categories.push(dietary_goal);
+    }
+    if (restrict_diet && restrict_diet.toLowerCase() !== 'none') {
+      categories.push(restrict_diet);
+    }
+    const recipeTitle = extractRecipeTitle(recipeHtml); // 之前建议你提取的 <h1> 标题
+    const { data, error } = await supabase.from('history').insert({
+      user_id,
+      image_url,
+      recipe_html: recipeHtml,
+      recipe_title: recipeTitle,
+      video_url,
+      meal_type,
+      dietary_goal,
+      meal_time,
+      amount_people,
+      restrict_diet,
+      detected_items: items,
+      tags: categories
+    });
     // Final response
     return new Response(JSON.stringify({
       items,
       recipe: recipeHtml,
-      video_url
+      video_url,
+      categories
     }), {
       status: 200,
       headers: {

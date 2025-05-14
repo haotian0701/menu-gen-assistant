@@ -116,60 +116,89 @@ class _HistoryPageState extends State<HistoryPage> {
                   ? Center(child: Text(_error!))
                   : _records.isEmpty
                       ? const Center(child: Text('No history available'))
-                      : ListView.builder(
-                          itemCount: _records.length,
-                          itemBuilder: (context, i) {
-                            final rec = _records[i];
-                            final imageUrl = rec['image_url'] as String;
-                            final mealType = rec['meal_type'] as String;
-                            final dietaryGoal = rec['dietary_goal'] as String;
-                            final createdAt = _formatDate(rec['created_at'] as String);
+                      : _buildGroupedListView(),
+    );
+  }
+  Widget _buildGroupedListView() {
+    final Map<String, List<Map<String, dynamic>>> groups = {};
+    for (var rec in _records) {
+      final mt = rec['meal_type'] as String? ?? '';
+      final dg = rec['dietary_goal'] as String? ?? '';
+      final rd = rec['restrict_diet'] as String? ?? '';
+      final parts = <String>[];
+      if (mt.isNotEmpty) parts.add(mt);
+      if (dg.isNotEmpty && dg != 'normal') parts.add(dg);
+      if (rd.isNotEmpty && rd != 'None') parts.add(rd);
+      final category = parts.isNotEmpty ? parts.join(' · ') : 'Uncategorized';
+      groups.putIfAbsent(category, () => []).add(rec);
+    }
 
-                            return ListTile(
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  imageUrl,
-                                  width: 56,
-                                  height: 56,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.broken_image),
-                                ),
-                              ),
-                              title: Text(
-                                '${mealType[0].toUpperCase()}${mealType.substring(1)} · $dietaryGoal',
-                              ),
-                              subtitle: Text(createdAt),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
-                                final recipeHtml = rec['recipe_html'] as String;
-                                final items = (rec['detected_items'] as List)
-                                    .cast<Map<String, dynamic>>();
-                                // Retrieve the additional required fields from the record
-                                // Provide default values if they might be null in the database
-                                final mealTime = rec['meal_time'] as String? ?? ''; // Correctly read
-                                final amountPeople = rec['amount_people'] as String? ?? ''; // Correctly read
-                                final restrictDiet = rec['restrict_diet'] as String? ?? ''; // Will default to '' if column is missing
+    final children = <Widget>[];
+    groups.forEach((category, recs) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            category.toUpperCase(),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+      );
+      for (var rec in recs) {
+        final imageUrl = rec['image_url'] as String;
+        final createdAt = _formatDate(rec['created_at'] as String);
+        String title = (rec['recipe_title'] as String?)?.trim() ?? '';
+        if (title.isEmpty) {
+          final rawHtml = rec['recipe_html'] as String? ?? '';
+          final match = RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false)
+              .firstMatch(rawHtml);
+          title = match?.group(1)?.trim() ?? 'Untitled Recipe';
+        } 
+        children.add(
+          ListTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                imageUrl,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+              ),
+            ),
+            title: Text(title),
+            subtitle: Text(createdAt),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              final recipeHtml = rec['recipe_html'] as String;
+              final items = (rec['detected_items'] as List)
+                  .cast<Map<String, dynamic>>();
+              final mealTime = rec['meal_time'] as String? ?? '';
+              final amountPeople = rec['amount_people'] as String? ?? '';
+              final restrictDiet = rec['restrict_diet'] as String? ?? '';
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecipePage(
+                    imageUrl: imageUrl,
+                    recipe: recipeHtml,
+                    detectedItems: items,
+                    mealType: rec['meal_type'] as String,
+                    dietaryGoal: rec['dietary_goal'] as String,
+                    mealTime: mealTime,
+                    amountPeople: amountPeople,
+                    restrictDiet: restrictDiet,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      }
+    });
 
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => RecipePage(
-                                      imageUrl: imageUrl,
-                                      recipe: recipeHtml,
-                                      detectedItems: items,
-                                      mealType: mealType, 
-                                      dietaryGoal: dietaryGoal, 
-                                      mealTime: mealTime,
-                                      amountPeople: amountPeople,
-                                      restrictDiet: restrictDiet, // This will be '' if not in DB
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
+    return ListView(
+      padding: const EdgeInsets.only(top: 8),
+      children: children,
     );
   }
 }
