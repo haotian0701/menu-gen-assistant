@@ -69,8 +69,8 @@ class _UploadImagePageState extends State<UploadImagePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Upload & Identify Items'),
-        actions: const [ // Use const for actions list if all children are const
-          AccountIconButton(), // Add the new account icon button
+        actions: const [
+          AccountIconButton(),
         ],
       ),
       body: Padding(
@@ -78,23 +78,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons take full width
           children: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: _loading ? null : _pickAndUpload,
-              child: _loading
-                  ? const SizedBox(
-                      height: 24, // Consistent height for indicator
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
-                  : const Text('Select & Upload Image', style: TextStyle(fontSize: 16)),
-            ),
-            const SizedBox(height: 16),
+            // Image Preview Section (now first)
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -118,6 +102,27 @@ class _UploadImagePageState extends State<UploadImagePage> {
                       ),
               ),
             ),
+            const SizedBox(height: 16), // Space after image preview
+
+            // Select & Upload Image Button (now after image preview)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: _loading ? null : _pickAndUpload,
+              child: _loading
+                  ? const SizedBox(
+                      height: 24, // Consistent height for indicator
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : const Text('Select & Upload Image', style: TextStyle(fontSize: 16)),
+            ),
+
+            // Identify Items & Set Options Button (remains conditional and at the end)
             if (_uploadedUrl != null) ...[
               const SizedBox(height: 16),
               ElevatedButton(

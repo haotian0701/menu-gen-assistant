@@ -53,7 +53,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
   late String _selectedDiet;
 
   // Options for dropdowns
-  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
+   final _mealTypes = ['breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
   final _amountPeopleOptions = ['1', '2', '4', '6+']; // Added 6+ as an example
@@ -399,7 +399,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
     String? hintText,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Reduced padding
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         border: Border.all(color: Colors.grey.shade400),
@@ -462,6 +462,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                   children: [
                     // Image and Chips section (Expanded)
                     Expanded(
+                      flex: 2, // Image takes 2/3 of the space
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final cw = constraints.maxWidth;
@@ -525,65 +526,81 @@ class _ExtractionPageState extends State<ExtractionPage> {
                       ),
                     ),
 
-                    // Options Section (Not expanded, scrollable if needed)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SingleChildScrollView( // Added for smaller screens
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Recipe Options:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(child: Text('Meal Type:')),
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDropdown(_selectedMeal, _mealTypes, (val) => setState(() => _selectedMeal = val!)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(child: Text('Dietary Goal:')),
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDropdown(_selectedGoal, _dietaryGoals, (val) => setState(() => _selectedGoal = val!)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(child: Text('Meal Time:')),
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDropdown(_selectedTime, _mealTimeOptions, (val) => setState(() => _selectedTime = val!)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(child: Text('Amount of People:')),
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDropdown(_selectedPeople, _amountPeopleOptions, (val) => setState(() => _selectedPeople = val!)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(child: Text('Dietary Restrictions:')),
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDropdown(_selectedDiet, _restrictDietOptions, (val) => setState(() => _selectedDiet = val!)),
-                                ),
-                              ],
-                            ),
-                          ],
+                    // Options Section (Takes 1/3 of the space)
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
+                            children: [
+                              const Text('Recipe Options:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+                              Row( // First row of options
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Meal Type:'),
+                                        const SizedBox(height: 4),
+                                        _buildDropdown(_selectedMeal, _mealTypes, (val) => setState(() => _selectedMeal = val!)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10), // Spacer between columns
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Dietary Goal:'),
+                                        const SizedBox(height: 4),
+                                        _buildDropdown(_selectedGoal, _dietaryGoals, (val) => setState(() => _selectedGoal = val!)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row( // Second row of options
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Meal Time:'),
+                                        const SizedBox(height: 4),
+                                        _buildDropdown(_selectedTime, _mealTimeOptions, (val) => setState(() => _selectedTime = val!)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10), // Spacer between columns
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Amount of People:'),
+                                        const SizedBox(height: 4),
+                                        _buildDropdown(_selectedPeople, _amountPeopleOptions, (val) => setState(() => _selectedPeople = val!)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Third row for the last option (Dietary Restrictions)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Dietary Restrictions:'),
+                                  const SizedBox(height: 4),
+                                  _buildDropdown(_selectedDiet, _restrictDietOptions, (val) => setState(() => _selectedDiet = val!)),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
