@@ -1,0 +1,19 @@
+% Save this as 'frontend_flowchart.tex' or paste into your main TeX file
+\begin{tikzpicture}[
+  node distance = 3.3cm,
+  box/.style = {
+    rectangle, rounded corners, minimum width=2.7cm, minimum height=1.3cm,
+    draw=teal!80!black, thick, fill=teal!5
+  },
+  arrow/.style = {-{Latex[length=3mm]}, thick, teal!70!black}
+]
+\node[box] (upload)    {Upload\\[-0.3em]\textbf{Upload Image}};
+\node[box, right=of upload] (extract) {Extraction\\[-0.3em]\textbf{Detect \& Edit Labels}\\[-0.1em]\textbf{Set Parameters}};
+\node[box, right=of extract] (generate) {Generating\\[-0.3em]\textbf{Generate Recipe}};
+\node[box, right=of generate] (recipe)  {Recipe\\[-0.3em]\textbf{Show Recipe HTML}\\[-0.1em]\textbf{Video \& Share}};
+\node[box, right=of recipe] (history)   {History\\[-0.3em]\textbf{Recipe History List}};
+\draw[arrow] (upload) -- (extract);
+\draw[arrow] (extract) -- (generate);
+\draw[arrow] (generate) -- (recipe);
+\draw[arrow] (recipe) -- (history);
+\end{tikzpicture}
