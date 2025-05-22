@@ -9,7 +9,7 @@ A Flutter + Supabase project that allows users to:
 # Presentation
 
 Find our slide deck here:  
-[View slides (PDF)](presentation_stuff/pres.pdf)
+[View slides (PDF)](presentation_stuff/presentation.pdf)
 
 ## Sources:
 - Gemini API
