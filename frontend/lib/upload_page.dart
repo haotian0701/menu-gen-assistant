@@ -3,6 +3,7 @@
 import 'dart:typed_data';
 import 'dart:ui';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' show basename;
@@ -36,83 +37,85 @@ class _UploadImagePageState extends State<UploadImagePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: Column(
-        children: [
-          const AppHeader(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 800;
-                final isPortrait = constraints.maxHeight > constraints.maxWidth;
-                final padding = isSmallScreen ? 20.0 : 40.0;
+      body: SafeArea(
+        child: Column(
+          children: [
+            const AppHeader(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isSmallScreen = constraints.maxWidth < 800;
+                  final isPortrait = constraints.maxHeight > constraints.maxWidth;
+                  final padding = isSmallScreen ? 20.0 : 40.0;
 
-                return Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(padding),
-                  child: LayoutBuilder(
-                    builder: (context, innerConstraints) {
-                      final isSmallScreen = innerConstraints.maxWidth < 800;
-                      final isPortrait = innerConstraints.maxHeight >
-                          innerConstraints.maxWidth;
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(padding),
+                    child: LayoutBuilder(
+                      builder: (context, innerConstraints) {
+                        final isSmallScreen = innerConstraints.maxWidth < 800;
+                        final isPortrait = innerConstraints.maxHeight >
+                            innerConstraints.maxWidth;
 
-                      if (isSmallScreen && isPortrait) {
-                        // Mobile portrait - only show upload section (generate button is inside)
-                        return UploadSection(
-                          controller: _uploadController,
-                          onUploadSuccess: _handleUploadSuccess,
-                        );
-                      } else if (isSmallScreen) {
-                        // Small screen landscape - stack vertically with status panel
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: UploadSection(
-                                controller: _uploadController,
-                                onUploadSuccess: _handleUploadSuccess,
+                        if (isSmallScreen && isPortrait) {
+                          // Mobile portrait - only show upload section (generate button is inside)
+                          return UploadSection(
+                            controller: _uploadController,
+                            onUploadSuccess: _handleUploadSuccess,
+                          );
+                        } else if (isSmallScreen) {
+                          // Small screen landscape - stack vertically with status panel
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: UploadSection(
+                                  controller: _uploadController,
+                                  onUploadSuccess: _handleUploadSuccess,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            Expanded(
-                              flex: 1,
-                              child: StatusPanel(
-                                controller: _uploadController,
-                                onGenerateRecipe: _handleGenerateRecipe,
+                              const SizedBox(height: 24),
+                              Expanded(
+                                flex: 1,
+                                child: StatusPanel(
+                                  controller: _uploadController,
+                                  onGenerateRecipe: _handleGenerateRecipe,
+                                ),
                               ),
-                            ),
-                          ],
-                        );
-                      } else {
-                        // Large screen - side by side
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 4,
-                              child: UploadSection(
-                                controller: _uploadController,
-                                onUploadSuccess: _handleUploadSuccess,
+                            ],
+                          );
+                        } else {
+                          // Large screen - side by side
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: UploadSection(
+                                  controller: _uploadController,
+                                  onUploadSuccess: _handleUploadSuccess,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              flex: 1,
-                              child: StatusPanel(
-                                controller: _uploadController,
-                                onGenerateRecipe: _handleGenerateRecipe,
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 1,
+                                child: StatusPanel(
+                                  controller: _uploadController,
+                                  onGenerateRecipe: _handleGenerateRecipe,
+                                ),
                               ),
-                            ),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-                );
-              },
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -530,53 +533,63 @@ class UploadArea extends StatelessWidget {
               );
             }
 
-            // Calculate scale to fit the image width exactly to the container width
+            // Calculate scale so that both width and height fit within the
+            // available space while maintaining aspect ratio. We only scale
+            // down (never up) to avoid pixelation.
             final containerWidth = constraints.maxWidth;
-            final scale = containerWidth / imgSize.width;
+            final containerHeight = constraints.maxHeight;
+
+            // Determine the scale required for each dimension and pick the
+            // smallest so the image fits in both directions.
+            final scaleW = containerWidth / imgSize.width;
+            final scaleH = containerHeight / imgSize.height;
+            final scale = math.min(1.0, math.min(scaleW, scaleH));
 
             final displayWidth = imgSize.width * scale;
             final displayHeight = imgSize.height * scale;
 
-            return SizedBox(
-              width: displayWidth,
-              height: displayHeight,
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    width: displayWidth,
-                    height: displayHeight,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(
-                        controller.fileBytes!,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () {
-                        controller.clearUpload();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 16,
+            return Center(
+              child: SizedBox(
+                width: displayWidth,
+                height: displayHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: displayWidth,
+                      height: displayHeight,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          controller.fileBytes!,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.clearUpload();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },

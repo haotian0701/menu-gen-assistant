@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -72,107 +73,109 @@ class _ExtractionPageState extends State<ExtractionPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC), // ← Add this line
-      body: Column(
-        children: [
-          const AppHeader(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 800;
-                final isPortrait = constraints.maxHeight > constraints.maxWidth;
-                final padding = isSmallScreen ? 20.0 : 40.0;
+      body: SafeArea(
+        child: Column(
+          children: [
+            const AppHeader(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isSmallScreen = constraints.maxWidth < 800;
+                  final isPortrait = constraints.maxHeight > constraints.maxWidth;
+                  final padding = isSmallScreen ? 20.0 : 40.0;
 
-                return Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(padding),
-                  child: LayoutBuilder(
-                    builder: (context, innerConstraints) {
-                      final isSmallScreen = innerConstraints.maxWidth < 800;
-                      final isPortrait = innerConstraints.maxHeight >
-                          innerConstraints.maxWidth;
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(padding),
+                    child: LayoutBuilder(
+                      builder: (context, innerConstraints) {
+                        final isSmallScreen = innerConstraints.maxWidth < 800;
+                        final isPortrait = innerConstraints.maxHeight >
+                            innerConstraints.maxWidth;
 
-                      if (isSmallScreen && isPortrait) {
-                        // Mobile portrait - stack vertically
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: ImageSection(
-                                  controller: _extractionController),
-                            ),
-                            const SizedBox(height: 24),
-                            Expanded(
-                              flex: 2,
-                              child: OptionsSection(
-                                  controller: _extractionController),
-                            ),
-                            const SizedBox(height: 16),
-                            GenerateButton(controller: _extractionController),
-                          ],
-                        );
-                      } else if (isSmallScreen) {
-                        // Small screen landscape - side by side
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: ImageSection(
-                                  controller: _extractionController),
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: OptionsSection(
-                                        controller: _extractionController),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  GenerateButton(
-                                      controller: _extractionController),
-                                ],
+                        if (isSmallScreen && isPortrait) {
+                          // Mobile portrait - stack vertically
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: ImageSection(
+                                    controller: _extractionController),
                               ),
-                            ),
-                          ],
-                        );
-                      } else {
-                        // Large screen - side by side
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: ImageSection(
-                                  controller: _extractionController),
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: OptionsSection(
-                                        controller: _extractionController),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  GenerateButton(
-                                      controller: _extractionController),
-                                ],
+                              const SizedBox(height: 24),
+                              Expanded(
+                                flex: 2,
+                                child: OptionsSection(
+                                    controller: _extractionController),
                               ),
-                            ),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-                );
-              },
+                              const SizedBox(height: 16),
+                              GenerateButton(controller: _extractionController),
+                            ],
+                          );
+                        } else if (isSmallScreen) {
+                          // Small screen landscape - side by side
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: ImageSection(
+                                    controller: _extractionController),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: OptionsSection(
+                                          controller: _extractionController),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    GenerateButton(
+                                        controller: _extractionController),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          // Large screen - side by side
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: ImageSection(
+                                    controller: _extractionController),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: OptionsSection(
+                                          controller: _extractionController),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    GenerateButton(
+                                        controller: _extractionController),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -605,7 +608,7 @@ class ImageSection extends StatelessWidget {
                         : controller.errorMessage != null
                             ? Expanded(
                                 child: _ErrorState(controller: controller))
-                            : _ImageDisplay(controller: controller),
+                            : Expanded(child: _ImageDisplay(controller: controller)),
                   ],
                 ),
               );
@@ -816,54 +819,62 @@ class _ImageDisplay extends StatelessWidget {
               );
             }
 
-            // Calculate scale to fit the image width exactly to the container width
+            // Calculate scale so that both width and height fit within the
+            // available space while maintaining aspect ratio. We only scale
+            // down (never up) to avoid unnecessary upscaling.
             final containerWidth = constraints.maxWidth;
-            final scale = containerWidth / imgSize.width;
+            final containerHeight = constraints.maxHeight;
+
+            final scaleW = containerWidth / imgSize.width;
+            final scaleH = containerHeight / imgSize.height;
+            final scale = math.min(1.0, math.min(scaleW, scaleH));
 
             final displayWidth = imgSize.width * scale;
             final displayHeight = imgSize.height * scale;
 
             return SingleChildScrollView(
-              child: SizedBox(
-                width: displayWidth,
-                height: displayHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: displayWidth,
-                      height: displayHeight,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          controller.imageUrl,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    if (controller.hasDetectedItems)
-                      ..._buildEditableChips(
-                        controller.detectedItems!,
-                        displayWidth,
-                        displayHeight,
-                        scale,
-                        controller,
-                        context,
-                      )
-                    else if (controller.detectedItems != null &&
-                        controller.detectedItems!.isEmpty)
-                      const Center(
-                        child: Text(
-                          'No items detected. Please try again.',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF64748B),
+              child: Center(
+                child: SizedBox(
+                  width: displayWidth,
+                  height: displayHeight,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: displayWidth,
+                        height: displayHeight,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            controller.imageUrl,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
-                  ],
+                      if (controller.hasDetectedItems)
+                        ..._buildEditableChips(
+                          controller.detectedItems!,
+                          displayWidth,
+                          displayHeight,
+                          scale,
+                          controller,
+                          context,
+                        )
+                      else if (controller.detectedItems != null &&
+                          controller.detectedItems!.isEmpty)
+                        const Center(
+                          child: Text(
+                            'No items detected. Please try again.',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             );

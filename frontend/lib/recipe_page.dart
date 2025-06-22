@@ -91,55 +91,57 @@ class _RecipePageState extends State<RecipePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: Column(
-        children: [
-          AppHeader(
-            imageUrl: widget.imageUrl,
-            detectedItems: widget.detectedItems,
-            mealType: widget.mealType,
-            dietaryGoal: widget.dietaryGoal,
-            mealTime: widget.mealTime,
-            amountPeople: widget.amountPeople,
-            restrictDiet: widget.restrictDiet,
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isSmallScreen = constraints.maxWidth < 800;
-                final isPortrait = constraints.maxHeight > constraints.maxWidth;
-                final isMobilePortrait = isSmallScreen && isPortrait;
-                final padding =
-                    isMobilePortrait ? 16.0 : (isSmallScreen ? 24.0 : 40.0);
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppHeader(
+              imageUrl: widget.imageUrl,
+              detectedItems: widget.detectedItems,
+              mealType: widget.mealType,
+              dietaryGoal: widget.dietaryGoal,
+              mealTime: widget.mealTime,
+              amountPeople: widget.amountPeople,
+              restrictDiet: widget.restrictDiet,
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isSmallScreen = constraints.maxWidth < 800;
+                  final isPortrait = constraints.maxHeight > constraints.maxWidth;
+                  final isMobilePortrait = isSmallScreen && isPortrait;
+                  final padding =
+                      isMobilePortrait ? 16.0 : (isSmallScreen ? 24.0 : 40.0);
 
-                return Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(padding),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isMobilePortrait
-                            ? double.infinity
-                            : (isSmallScreen ? double.infinity : 800),
-                      ),
-                      child: RecipeSection(
-                        recipe: _cleanedRecipe,
-                        pageTitle: _pageTitle,
-                        videoUrl: widget.videoUrl,
-                        imageUrl: widget.imageUrl,
-                        detectedItems: widget.detectedItems,
-                        mealType: widget.mealType,
-                        dietaryGoal: widget.dietaryGoal,
-                        mealTime: widget.mealTime,
-                        amountPeople: widget.amountPeople,
-                        restrictDiet: widget.restrictDiet,
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(padding),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isMobilePortrait
+                              ? double.infinity
+                              : (isSmallScreen ? double.infinity : 800),
+                        ),
+                        child: RecipeSection(
+                          recipe: _cleanedRecipe,
+                          pageTitle: _pageTitle,
+                          videoUrl: widget.videoUrl,
+                          imageUrl: widget.imageUrl,
+                          detectedItems: widget.detectedItems,
+                          mealType: widget.mealType,
+                          dietaryGoal: widget.dietaryGoal,
+                          mealTime: widget.mealTime,
+                          amountPeople: widget.amountPeople,
+                          restrictDiet: widget.restrictDiet,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
