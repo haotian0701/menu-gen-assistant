@@ -33,6 +33,8 @@ function extractLabelsFromJson(jsonString) {
 // Environment variables
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
+const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
+const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
 const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
@@ -357,6 +359,27 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
         console.warn("YouTube API error:", ytErr);
       }
     }
+    // ============ Google Image Search Integration ============
+    let main_image_url = null;
+    if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
+      try {
+        const imgResp = await fetch(
+          `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(dishTitle)}&searchType=image&num=1`
+        );
+        if (imgResp.ok) {
+          const imgData = await imgResp.json();
+          const imgUrl = imgData.items?.[0]?.link;
+          if (imgUrl) {
+            main_image_url = imgUrl;
+            console.log("Main image URL:", main_image_url);
+          }
+        } else {
+          console.warn("Google Image API search failed:", await imgResp.text());
+        }
+      } catch (imgErr) {
+        console.warn("Google Image Search error:", imgErr);
+      }
+    }
     // ================================================
     const categories = [];
     if (meal_type && meal_type.toLowerCase() !== 'normal') {
@@ -368,12 +391,13 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     if (restrict_diet && restrict_diet.toLowerCase() !== 'none') {
       categories.push(restrict_diet);
     }
-    const recipeTitle = extractRecipeTitle(recipeHtml); // 之前建议你提取的 <h1> 标题
+    const recipeTitle = extractRecipeTitle(recipeHtml); 
     const { data, error } = await supabase.from('history').insert({
       user_id,
       image_url,
       recipe_html: recipeHtml,
       recipe_title: recipeTitle,
+      main_image_url, 
       video_url,
       meal_type,
       dietary_goal,
@@ -388,7 +412,8 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       items,
       recipe: recipeHtml,
       video_url,
-      categories
+      categories,
+      main_image_url,
     }), {
       status: 200,
       headers: {
