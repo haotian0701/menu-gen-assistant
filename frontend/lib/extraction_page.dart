@@ -20,7 +20,7 @@ class ExtractionPage extends StatefulWidget {
   final String? initialRestrictDiet;
 
   const ExtractionPage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     this.initialDetectedItems,
     this.isRegenerating = false,
@@ -29,7 +29,7 @@ class ExtractionPage extends StatefulWidget {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   State<ExtractionPage> createState() => _ExtractionPageState();
@@ -428,7 +428,7 @@ class ExtractionController extends ChangeNotifier {
 // =============================================================================
 
 class AppHeader extends StatelessWidget {
-  const AppHeader({Key? key}) : super(key: key);
+  const AppHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -484,9 +484,9 @@ class BrandSection extends StatelessWidget {
   final bool isSmallScreen;
 
   const BrandSection({
-    Key? key,
+    super.key,
     required this.isSmallScreen,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +534,7 @@ class BrandSection extends StatelessWidget {
 }
 
 class NavigationSection extends StatelessWidget {
-  const NavigationSection({Key? key}) : super(key: key);
+  const NavigationSection({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -570,9 +570,9 @@ class ImageSection extends StatelessWidget {
   final ExtractionController controller;
 
   const ImageSection({
-    Key? key,
+    super.key,
     required this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -650,7 +650,7 @@ class ImageSection extends StatelessWidget {
 }
 
 class ImageHeader extends StatelessWidget {
-  const ImageHeader({Key? key}) : super(key: key);
+  const ImageHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1091,9 +1091,9 @@ class OptionsSection extends StatelessWidget {
   final ExtractionController controller;
 
   const OptionsSection({
-    Key? key,
+    super.key,
     required this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1134,7 +1134,7 @@ class OptionsSection extends StatelessWidget {
 }
 
 class OptionsHeader extends StatelessWidget {
-  const OptionsHeader({Key? key}) : super(key: key);
+  const OptionsHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1173,9 +1173,9 @@ class OptionsGrid extends StatelessWidget {
   final ExtractionController controller;
 
   const OptionsGrid({
-    Key? key,
+    super.key,
     required this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1305,9 +1305,9 @@ class GenerateButton extends StatelessWidget {
   final ExtractionController controller;
 
   const GenerateButton({
-    Key? key,
+    super.key,
     required this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

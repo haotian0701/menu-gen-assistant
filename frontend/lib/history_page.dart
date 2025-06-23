@@ -146,6 +146,7 @@ class _HistoryPageState extends State<HistoryPage> {
       );
       for (var rec in recs) {
         final imageUrl = rec['image_url'] as String;
+        final mainImageUrl = rec['main_image_url'] as String?;
         final createdAt = _formatDate(rec['created_at'] as String);
         String title = (rec['recipe_title'] as String?)?.trim() ?? '';
         if (title.isEmpty) {
@@ -180,6 +181,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 MaterialPageRoute(
                   builder: (_) => RecipePage(
                     imageUrl: imageUrl,
+                    mainImageUrl: mainImageUrl,
                     recipe: recipeHtml,
                     detectedItems: items,
                     mealType: rec['meal_type'] as String,

@@ -18,7 +18,7 @@ class GeneratingPage extends StatefulWidget {
   final List<Map<String, dynamic>>? manualLabels;
 
   const GeneratingPage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
@@ -26,7 +26,7 @@ class GeneratingPage extends StatefulWidget {
     this.amountPeople,
     this.manualLabels,
     this.restrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   State<GeneratingPage> createState() => _GeneratingPageState();
@@ -76,10 +76,12 @@ class _GeneratingPageState extends State<GeneratingPage> {
       };
 
       if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
-      if (widget.amountPeople != null)
+      if (widget.amountPeople != null) {
         body['amount_people'] = widget.amountPeople;
-      if (widget.restrictDiet != null)
+      }
+      if (widget.restrictDiet != null) {
         body['restrict_diet'] = widget.restrictDiet;
+      }
 
       if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
         body['manual_labels'] = widget.manualLabels;
@@ -108,6 +110,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
       final recipe = data['recipe'] as String;
       final items = (data['items'] as List).cast<Map<String, dynamic>>();
       final videoUrl = data['video_url'] as String?;
+      final mainImageUrl = data['main_image_url'] as String?;
 
       // Conditionally write history in Supabase.
       final user = client.auth.currentUser; // Get the current user again
@@ -124,11 +127,12 @@ class _GeneratingPageState extends State<GeneratingPage> {
           'amount_people': widget.amountPeople,
           'meal_time': widget.mealTime,
           'restrict_diet': widget.restrictDiet,
+          'main_image_url': mainImageUrl, 
         });
       }
 
       if (!mounted) return;
-
+      
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => RecipePage(
@@ -141,6 +145,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
             mealTime: widget.mealTime ?? '',
             amountPeople: widget.amountPeople ?? '',
             restrictDiet: widget.restrictDiet ?? '',
+            mainImageUrl: mainImageUrl,
           ),
         ),
       );

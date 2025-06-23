@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'upload_page.dart'; // Ensure this is the correct import for UploadImagePage
-import 'account_icon_button.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

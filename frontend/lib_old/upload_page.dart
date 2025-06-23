@@ -10,7 +10,7 @@ import 'extraction_page.dart';
 import 'account_icon_button.dart'; // Import the new widget
 
 class UploadImagePage extends StatefulWidget {
-  const UploadImagePage({Key? key}) : super(key: key);
+  const UploadImagePage({super.key});
 
   @override
   State<UploadImagePage> createState() => _UploadImagePageState();

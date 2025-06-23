@@ -43,9 +43,10 @@ class RecipePage extends StatefulWidget {
   final String mealTime;
   final String amountPeople;
   final String restrictDiet;
+  final String? mainImageUrl;
 
   const RecipePage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.recipe,
     required this.detectedItems,
@@ -55,7 +56,8 @@ class RecipePage extends StatefulWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
-  }) : super(key: key);
+    this.mainImageUrl,
+  });
 
   @override
   State<RecipePage> createState() => _RecipePageState();
@@ -133,6 +135,7 @@ class _RecipePageState extends State<RecipePage> {
                           mealTime: widget.mealTime,
                           amountPeople: widget.amountPeople,
                           restrictDiet: widget.restrictDiet,
+                          mainImageUrl: widget.mainImageUrl, 
                         ),
                       ),
                     ),
@@ -161,7 +164,7 @@ class AppHeader extends StatelessWidget {
   final String restrictDiet;
 
   const AppHeader({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.detectedItems,
     required this.mealType,
@@ -169,7 +172,7 @@ class AppHeader extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -243,9 +246,9 @@ class BrandSection extends StatelessWidget {
   final bool isSmallScreen;
 
   const BrandSection({
-    Key? key,
+    super.key,
     required this.isSmallScreen,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -307,9 +310,10 @@ class RecipeSection extends StatelessWidget {
   final String mealTime;
   final String amountPeople;
   final String restrictDiet;
+  final String? mainImageUrl;
 
   const RecipeSection({
-    Key? key,
+    super.key,
     required this.recipe,
     required this.pageTitle,
     this.videoUrl,
@@ -320,7 +324,8 @@ class RecipeSection extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
-  }) : super(key: key);
+    this.mainImageUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -353,6 +358,20 @@ class RecipeSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               RecipeHeader(pageTitle: pageTitle),
+                if (mainImageUrl != null && mainImageUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        mainImageUrl!,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.broken_image, size: 60, color: Colors.grey[400]),
+                      ),
+                    ),
+                  ),
               SizedBox(
                   height: isMobilePortrait ? 16 : (isSmallScreen ? 24 : 32)),
               Expanded(
@@ -394,9 +413,9 @@ class RecipeHeader extends StatelessWidget {
   final String pageTitle;
 
   const RecipeHeader({
-    Key? key,
+    super.key,
     required this.pageTitle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -438,9 +457,9 @@ class VideoButton extends StatelessWidget {
   final String videoUrl;
 
   const VideoButton({
-    Key? key,
+    super.key,
     required this.videoUrl,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -512,9 +531,9 @@ class RecipeContent extends StatelessWidget {
   final String recipe;
 
   const RecipeContent({
-    Key? key,
+    super.key,
     required this.recipe,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -614,7 +633,7 @@ class ActionButtons extends StatelessWidget {
   final String restrictDiet;
 
   const ActionButtons({
-    Key? key,
+    super.key,
     required this.pageTitle,
     required this.recipe,
     required this.imageUrl,
@@ -624,7 +643,7 @@ class ActionButtons extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

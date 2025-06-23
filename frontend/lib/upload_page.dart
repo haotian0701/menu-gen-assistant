@@ -17,7 +17,7 @@ import 'account_icon_button.dart';
 // =============================================================================
 
 class UploadImagePage extends StatefulWidget {
-  const UploadImagePage({Key? key}) : super(key: key);
+  const UploadImagePage({super.key});
 
   @override
   State<UploadImagePage> createState() => _UploadImagePageState();
@@ -208,10 +208,6 @@ class UploadController extends ChangeNotifier {
     _clearUpload();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
 
 // =============================================================================
@@ -219,7 +215,7 @@ class UploadController extends ChangeNotifier {
 // =============================================================================
 
 class AppHeader extends StatelessWidget {
-  const AppHeader({Key? key}) : super(key: key);
+  const AppHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -258,9 +254,9 @@ class BrandSection extends StatelessWidget {
   final bool isSmallScreen;
 
   const BrandSection({
-    Key? key,
+    super.key,
     required this.isSmallScreen,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -308,7 +304,7 @@ class BrandSection extends StatelessWidget {
 }
 
 class NavigationSection extends StatelessWidget {
-  const NavigationSection({Key? key}) : super(key: key);
+  const NavigationSection({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -345,10 +341,10 @@ class UploadSection extends StatelessWidget {
   final VoidCallback onUploadSuccess;
 
   const UploadSection({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onUploadSuccess,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -422,7 +418,7 @@ class UploadSection extends StatelessWidget {
 }
 
 class UploadHeader extends StatelessWidget {
-  const UploadHeader({Key? key}) : super(key: key);
+  const UploadHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -461,9 +457,9 @@ class UploadArea extends StatelessWidget {
   final UploadController controller;
 
   const UploadArea({
-    Key? key,
+    super.key,
     required this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -651,10 +647,10 @@ class UploadButton extends StatelessWidget {
   final VoidCallback onUploadSuccess;
 
   const UploadButton({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onUploadSuccess,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -762,10 +758,10 @@ class StatusPanel extends StatelessWidget {
   final VoidCallback onGenerateRecipe;
 
   const StatusPanel({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onGenerateRecipe,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -788,7 +784,7 @@ class StatusPanel extends StatelessWidget {
 }
 
 class StatusCard extends StatelessWidget {
-  const StatusCard({Key? key}) : super(key: key);
+  const StatusCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -890,9 +886,9 @@ class GenerateRecipeButton extends StatelessWidget {
   final VoidCallback onGenerateRecipe;
 
   const GenerateRecipeButton({
-    Key? key,
+    super.key,
     required this.onGenerateRecipe,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

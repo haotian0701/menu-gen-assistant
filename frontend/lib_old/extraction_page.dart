@@ -23,7 +23,7 @@ class ExtractionPage extends StatefulWidget {
   final String? initialRestrictDiet;
 
   const ExtractionPage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     this.initialDetectedItems,
     this.isRegenerating = false,
@@ -33,7 +33,7 @@ class ExtractionPage extends StatefulWidget {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   State<ExtractionPage> createState() => _ExtractionPageState();

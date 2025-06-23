@@ -18,7 +18,7 @@ class GeneratingPage extends StatefulWidget {
   final List<Map<String, dynamic>>? manualLabels;
 
   const GeneratingPage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.mealType,
     required this.dietaryGoal,
@@ -26,7 +26,7 @@ class GeneratingPage extends StatefulWidget {
     this.amountPeople,
     this.manualLabels,
     this.restrictDiet,
-  }) : super(key: key);
+  });
 
   @override
   State<GeneratingPage> createState() => _GeneratingPageState();

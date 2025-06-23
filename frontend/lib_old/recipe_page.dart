@@ -43,7 +43,7 @@ class RecipePage extends StatefulWidget {
   final String restrictDiet;
 
   const RecipePage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.recipe,
     required this.detectedItems,
@@ -53,7 +53,7 @@ class RecipePage extends StatefulWidget {
     required this.mealTime, // Added
     required this.amountPeople, // Added
     required this.restrictDiet, // Added
-  }) : super(key: key);
+  });
 
   @override
   State<RecipePage> createState() => _RecipePageState();
@@ -103,7 +103,7 @@ class _RecipePageState extends State<RecipePage> {
       ));
       stream.removeListener(lis);
     }, onError: (err, _) {
-      completer.completeError(err!);
+      completer.completeError(err);
       stream.removeListener(lis);
     });
     stream.addListener(lis);
@@ -223,7 +223,7 @@ class _RecipePageState extends State<RecipePage> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 1.0),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(12.0),
                       ),
                       child: Html(
