@@ -911,13 +911,31 @@ class _ImageDisplay extends StatelessWidget {
     final occupied = <Rect>[];
     const baseH = 32.0, extraH = 14.0, padV = 4.0;
 
+    // Helper to clamp bounding-box coordinates into [0,1]
+    double _norm(num? v) => (v ?? 0).toDouble().clamp(0.0, 1.0);
+
+    // Helper to measure text width precisely
+    double _textWidth(String txt, TextStyle style) {
+      final tp = TextPainter(
+        text: TextSpan(text: txt, style: style),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return tp.width;
+    }
+
     for (var i = 0; i < items.length; i++) {
       final it = items[i];
       final box = it['bounding_box'] as Map<String, dynamic>;
-      final xMin = (box['x_min'] as num?)?.toDouble() ?? 0.0;
-      final yMin = (box['y_min'] as num?)?.toDouble() ?? 0.0;
-      final xMax = (box['x_max'] as num?)?.toDouble() ?? 0.0;
-      final yMax = (box['y_max'] as num?)?.toDouble() ?? 0.0;
+      // Sanity-checked & normalised coordinates
+      final xMin = _norm(box['x_min']);
+      final yMin = _norm(box['y_min']);
+      final xMax = _norm(box['x_max']);
+      final yMax = _norm(box['y_max']);
+
+      // Skip obviously broken boxes
+      if (xMax < xMin || yMax < yMin) continue;
+
       final label = it['item_label'] as String? ?? '';
       final add = it['additional_info'] as String? ?? '';
       final quantity = it['quantity'] as int? ?? 1;
@@ -931,38 +949,65 @@ class _ImageDisplay extends StatelessWidget {
       final objectWidth = (xMax - xMin) * displayWidth;
       final objectHeight = (yMax - yMin) * displayHeight;
 
-      // Calculate chip dimensions
-      final chipW =
-          (displayLabel.length * 7.0 + (hasAdd ? add.length * 5.0 : 0) + 24.0)
-              .clamp(60.0, displayWidth * 0.8);
+      // Calculate chip dimensions using real text metrics for accuracy
+      const labelStyle = TextStyle(fontSize: 12);
+      const addStyle = TextStyle(fontSize: 10);
+      double w = _textWidth(displayLabel, labelStyle);
+      if (hasAdd) {
+        w = math.max(w, _textWidth(add, addStyle));
+      }
+      final chipW = (w + 24).clamp(60.0, displayWidth * 0.8);
       final chipH = baseH + (hasAdd ? extraH : 0) + padV * 2;
 
-      // Position the chip above the detected object
-      double cx = objectLeft +
-          objectWidth / 2 -
-          chipW / 2; // Center horizontally over the object
-      double cy =
-          objectTop - chipH - 8; // Position above the object with 8px gap
+      // Try multiple candidate anchors: above, below, left, right of object
+      const gap = 8.0;
+      final candidates = <Offset>[
+        // center of the bounding box
+        Offset(objectLeft + objectWidth / 2 - chipW / 2,
+            objectTop + objectHeight / 2 - chipH / 2),
+        // above
+        Offset(objectLeft + objectWidth / 2 - chipW / 2, objectTop - chipH - gap),
+        // below
+        Offset(objectLeft + objectWidth / 2 - chipW / 2, objectTop + objectHeight + gap),
+        // left
+        Offset(objectLeft - chipW - gap, objectTop + objectHeight / 2 - chipH / 2),
+        // right
+        Offset(objectLeft + objectWidth + gap, objectTop + objectHeight / 2 - chipH / 2),
+      ];
 
-      // Ensure the chip stays within the container bounds
-      cx = cx.clamp(0, displayWidth - chipW);
-      cy = cy.clamp(0, displayHeight - chipH);
-
-      // Check for overlaps and adjust if necessary
-      Rect rect = Rect.fromLTWH(cx, cy, chipW, chipH * 1.1);
-      int attempts = 0;
-      while (occupied.any((r) => r.overlaps(rect)) && attempts < 10) {
-        // If there's an overlap, try moving the chip down
-        cy = (cy + baseH * 0.5 + 4).clamp(0, displayHeight - chipH);
-        rect = Rect.fromLTWH(cx, cy, chipW, chipH * 1.1);
-        attempts++;
+      Rect? place;
+      for (final cand in candidates) {
+        final cx = cand.dx.clamp(0.0, displayWidth - chipW) as double;
+        final cy = cand.dy.clamp(0.0, displayHeight - chipH) as double;
+        final r = Rect.fromLTWH(cx, cy, chipW, chipH);
+        if (!occupied.any((o) => o.overlaps(r))) {
+          place = r;
+          break;
+        }
       }
-      occupied.add(rect);
+
+      // Fallback: vertical scan downward from above-centre
+      if (place == null) {
+        double cx = (objectLeft + objectWidth / 2 - chipW / 2)
+            .clamp(0.0, displayWidth - chipW) as double;
+        double cy = (objectTop - chipH - gap).clamp(0.0, displayHeight - chipH) as double;
+        Rect r = Rect.fromLTWH(cx, cy, chipW, chipH);
+        int attempts = 0;
+        while (occupied.any((o) => o.overlaps(r)) && attempts < 20) {
+          cy = (cy + baseH * 0.5 + 4).clamp(0.0, displayHeight - chipH) as double;
+          r = Rect.fromLTWH(cx, cy, chipW, chipH);
+          attempts++;
+        }
+        place = r;
+      }
+
+      final placeRect = place!; // safe: place is always set by now
+      occupied.add(placeRect);
 
       widgets.add(
         Positioned(
-          left: cx,
-          top: cy,
+          left: placeRect.left,
+          top: placeRect.top,
           child: GestureDetector(
             onTap: () => _showEditDialog(context, i, it, controller),
             child: Container(
