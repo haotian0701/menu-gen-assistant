@@ -280,9 +280,18 @@ Instructions:
       });
     }
     // Build ingredient text
-    const ingredientText = items.map((i)=>{
-      let txt = `${i.quantity > 1 ? i.quantity + " " : ""}${i.item_label}`;
+    const QUANTITY_DISPLAY_CUTOFF = 10;
+    const ingredientText = items.map((i) => {
+      let txt = "";
+
+      if (i.quantity > 1 && i.quantity <= QUANTITY_DISPLAY_CUTOFF) {
+        txt += `${i.quantity} `;
+      }
+
+      txt += i.item_label;
+
       if (i.additional_info) txt += ` (${i.additional_info})`;
+
       return txt;
     }).join(", ");
     //STAGE: CANDIDATES
