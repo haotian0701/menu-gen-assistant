@@ -5,6 +5,38 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// === Added: helper + fallback for main image URL validation ===
+const FALLBACK_IMAGE_URL = "https://via.placeholder.com/640x480.png?text=Recipe+Image";
+async function validateImageUrl(url) {
+  try {
+    const u = new URL(url);
+    // enforce https only (mixed-content issues on web)
+    if (u.protocol !== "https:") return null;
+
+    // Fast-path: has common image extension
+    if (/\.(png|jpe?g|gif|webp)$/i.test(u.pathname)) {
+      return url;
+    }
+
+    // Otherwise, do a HEAD request to ensure the resource is actually an image
+    try {
+      const headResp = await fetch(url, { method: "HEAD" });
+      if (headResp.ok) {
+        const ct = headResp.headers.get("content-type") || "";
+        if (ct.startsWith("image/")) {
+          return url;
+        }
+      }
+    } catch (_) {
+      // ignore network errors, we'll fall through to null
+    }
+  } catch {
+    // Malformed URL
+  }
+  return null;
+}
+
 function extractRecipeTitle(html) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
@@ -382,10 +414,19 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
         if (imgResp.ok) {
           const imgData = await imgResp.json();
           const imgUrl = imgData.items?.[0]?.link;
+          let candidateUrl = null;
           if (imgUrl) {
-            main_image_url = imgUrl;
-            console.log("Main image URL:", main_image_url);
+            // Try direct validation
+            candidateUrl = await validateImageUrl(imgUrl);
+
+            // If still null and link is http, try upgrading to https and validating again
+            if (!candidateUrl && imgUrl.startsWith("http://")) {
+              const httpsVersion = imgUrl.replace(/^http:/, "https:");
+              candidateUrl = await validateImageUrl(httpsVersion);
+            }
           }
+          main_image_url = candidateUrl ?? null;
+          console.log("Main image URL (validated)", main_image_url ?? "<none>");
         } else {
           console.warn("Google Image API search failed:", await imgResp.text());
         }
@@ -420,6 +461,10 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       detected_items: items,
       tags: categories
     });
+    // Ensure we always have some image URL to send back
+    if (!main_image_url) {
+      main_image_url = FALLBACK_IMAGE_URL;
+    }
     // Final response
     return new Response(JSON.stringify({
       items,

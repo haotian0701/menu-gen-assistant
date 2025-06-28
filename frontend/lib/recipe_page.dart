@@ -357,18 +357,23 @@ class RecipeSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RecipeHeader(pageTitle: pageTitle),
+              Center(child: RecipeHeader(pageTitle: pageTitle)),
                 if (mainImageUrl != null && mainImageUrl!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        mainImageUrl!,
-                        height: 200,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Icon(Icons.broken_image, size: 60, color: Colors.grey[400]),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16, bottom: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          mainImageUrl!,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            'assets/images/recipe_placeholder.png',
+                            height: 200,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -426,7 +431,7 @@ class RecipeHeader extends StatelessWidget {
         final isMobilePortrait = isSmallScreen && isPortrait;
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               pageTitle.isNotEmpty ? pageTitle : 'Generated Recipe',
@@ -436,6 +441,7 @@ class RecipeHeader extends StatelessWidget {
                 color: const Color(0xFF1E293B),
                 height: 1.2,
               ),
+              textAlign: TextAlign.center,
             ),
             SizedBox(height: isMobilePortrait ? 6 : (isSmallScreen ? 8 : 12)),
             Text(
@@ -445,6 +451,7 @@ class RecipeHeader extends StatelessWidget {
                 color: Colors.grey.shade600,
                 height: 1.4,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         );
