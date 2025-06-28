@@ -246,9 +246,22 @@ Instructions:
       });
     }
     // Build ingredient text
-    const ingredientText = items.map((i)=>{
-      let txt = `${i.quantity > 1 ? i.quantity + " " : ""}${i.item_label}`;
+    // If an item's quantity exceeds this threshold, we omit the exact number and just list the item label.
+    // Rationale: counts like "30 beans" or "40 peas" are not meaningful – the model should treat them as bulk items.
+    const QUANTITY_DISPLAY_CUTOFF = 10;
+
+    const ingredientText = items.map((i) => {
+      let txt = "";
+
+      // Show quantity only when it's above 1 but still under or equal to the cutoff.
+      if (i.quantity > 1 && i.quantity <= QUANTITY_DISPLAY_CUTOFF) {
+        txt += `${i.quantity} `;
+      }
+
+      txt += i.item_label;
+
       if (i.additional_info) txt += ` (${i.additional_info})`;
+
       return txt;
     }).join(", ");
     const manualNote = manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0 ? "<p><i>Note: Some labels might have been adjusted manually.</i></p>" : "";
