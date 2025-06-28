@@ -14,6 +14,7 @@ class GeneratingPage extends StatefulWidget {
   final String? mealTime;
   final String? amountPeople;
   final String? restrictDiet;
+  final String mode;
 
   final List<Map<String, dynamic>>? manualLabels;
 
@@ -26,6 +27,7 @@ class GeneratingPage extends StatefulWidget {
     this.amountPeople,
     this.manualLabels,
     this.restrictDiet,
+    required this.mode,
   });
 
   @override
@@ -33,13 +35,29 @@ class GeneratingPage extends StatefulWidget {
 }
 
 class _GeneratingPageState extends State<GeneratingPage> {
+  bool _loadingCandidates = true;   
+  List<Map<String, dynamic>> _candidates = [];  
+  String? _error;
+  bool _generatingFinal = false;  
+  bool _showCandidates = false;
+  bool _loadingDefault = false;                
   @override
   void initState() {
     super.initState();
-    _generate();
+    if (widget.mode == 'candidates') {
+      _generateCandidates();
+    } else if (widget.mode == 'final') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _generateFinalRecipe('');
+      });
+    }
   }
 
-  Future<void> _generate() async {
+  Future<void> _generateCandidates() async {
+    setState(() {               
+     _loadingCandidates = true; 
+     _showCandidates = true; 
+    });
     final supabaseInstance = Supabase.instance; // Get the Supabase instance
     final client = supabaseInstance.client; // Get the Supabase client instance
 
@@ -73,7 +91,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
         'mode': (widget.manualLabels != null && widget.manualLabels!.isNotEmpty)
             ? null
             : 'extract_first',
+        'stage': 'candidates', 
       };
+      
 
       if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
       if (widget.amountPeople != null) {
@@ -103,76 +123,188 @@ class _GeneratingPageState extends State<GeneratingPage> {
       );
 
       if (resp.statusCode != 200) {
-        throw Exception('Generation Failure ${resp.statusCode}: ${resp.body}');
+        setState(() { _error = 'Failed to get candidates'; _loadingCandidates = false; });
+        return;
       }
 
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      final recipe = data['recipe'] as String;
-      final items = (data['items'] as List).cast<Map<String, dynamic>>();
-      final videoUrl = data['video_url'] as String?;
-      final mainImageUrl = data['main_image_url'] as String?;
-
-      // Conditionally write history in Supabase.
-      final user = client.auth.currentUser; // Get the current user again
-      if (user != null) {
-        // Only save to history if user is logged in
-        await client.from('history').insert({
-          'user_id': user.id,
-          'image_url': widget.imageUrl,
-          'meal_type': widget.mealType,
-          'dietary_goal': widget.dietaryGoal,
-          'detected_items': items,
-          'recipe_html': recipe,
-          'video_url': videoUrl,
-          'amount_people': widget.amountPeople,
-          'meal_time': widget.mealTime,
-          'restrict_diet': widget.restrictDiet,
-          'main_image_url': mainImageUrl, 
-        });
-      }
-
-      if (!mounted) return;
-      
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => RecipePage(
-            imageUrl: widget.imageUrl,
-            recipe: recipe,
-            detectedItems: items,
-            videoUrl: videoUrl,
-            mealType: widget.mealType,
-            dietaryGoal: widget.dietaryGoal,
-            mealTime: widget.mealTime ?? '',
-            amountPeople: widget.amountPeople ?? '',
-            restrictDiet: widget.restrictDiet ?? '',
-            mainImageUrl: mainImageUrl,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error generating recipe: $e')),
-        );
-        Navigator.of(context).pop();
-      }
+      setState(() {
+        _candidates = List<Map<String, dynamic>>.from(data['candidates'] as List);
+      });
+    } finally {
+      setState(() {
+        _loadingCandidates = false;
+      });
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Generating...')),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Generating your recipe...'),
-          ],
+
+  Future<void> _generateFinalRecipe(String selectedTitle) async {
+  setState(() { 
+    _generatingFinal = true;
+    _loadingCandidates = false;
+     });
+
+  final supabaseInstance = Supabase.instance;
+  final client = supabaseInstance.client;
+  final session = client.auth.currentSession;
+  final accessToken = session?.accessToken;
+  final anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
+
+  final uri = Uri.parse(
+    'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
+  );
+
+  final body = <String, dynamic>{
+    'image_url': widget.imageUrl,
+    'meal_type': widget.mealType,
+    'dietary_goal': widget.dietaryGoal,
+    'selected_title': selectedTitle,
+  };
+  if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
+  if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
+  if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
+  if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
+    body['manual_labels'] = widget.manualLabels;
+  }
+
+  final headers = <String, String>{
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ${accessToken ?? anonKey}',
+  };
+
+  try {
+    final resp = await http.post(uri, headers: headers, body: jsonEncode(body));
+    if (resp.statusCode != 200) throw Exception('Failed to generate recipe: ${resp.body}');
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+
+    final recipe = data['recipe'] as String;
+    final items = (data['items'] as List).cast<Map<String, dynamic>>();
+    final videoUrl = data['video_url'] as String?;
+    final mainImageUrl = data['main_image_url'] as String?;
+
+    // history
+    final user = client.auth.currentUser;
+    if (user != null) {
+      await client.from('history').insert({
+        'user_id': user.id,
+        'image_url': widget.imageUrl,
+        'meal_type': widget.mealType,
+        'dietary_goal': widget.dietaryGoal,
+        'detected_items': items,
+        'recipe_html': recipe,
+        'video_url': videoUrl,
+        'amount_people': widget.amountPeople,
+        'meal_time': widget.mealTime,
+        'restrict_diet': widget.restrictDiet,
+        'main_image_url': mainImageUrl, 
+      });
+    }
+
+    if (!mounted) return;
+    
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RecipePage(
+          imageUrl: widget.imageUrl,
+          recipe: recipe,
+          detectedItems: items,
+          videoUrl: videoUrl,
+          mealType: widget.mealType,
+          dietaryGoal: widget.dietaryGoal,
+          mealTime: widget.mealTime ?? '',
+          amountPeople: widget.amountPeople ?? '',
+          restrictDiet: widget.restrictDiet ?? '',
+          mainImageUrl: mainImageUrl,
         ),
       ),
     );
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating recipe: $e')),
+      );
+    }
+    } finally {
+      if (mounted) setState(() { _generatingFinal = false; });
   }
+}
+
+  @override
+Widget build(BuildContext context) {
+  if (_loadingDefault || _generatingFinal || _loadingCandidates) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_generatingFinal
+          ? 'Finalizing Recipe...'
+          : _loadingDefault
+              ? 'Generating Instantly...'
+              : _loadingCandidates
+                ? 'Loading Candidates...'
+                : 'AI Recipe Generator')),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+  if (_error != null) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(child: Text(_error!)),
+    );
+  }
+
+  return Scaffold(
+    appBar: AppBar(title: const Text('AI Recipe Generator')),
+    body: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          if (widget.mode == 'final')
+            ElevatedButton.icon(
+              icon: const Icon(Icons.flash_on),
+              label: const Text('Generate Instantly'),
+              onPressed: _loadingDefault ? null : () => _generateFinalRecipe(''),
+            ),
+          if (widget.mode == 'candidates') ...[
+            ElevatedButton.icon(
+              icon: const Icon(Icons.tune),
+              label: const Text('Show Recipe Options'),
+              onPressed: _loadingCandidates ? null : _generateCandidates,
+            ),
+            const SizedBox(height: 24),
+            if (_showCandidates && _candidates.isNotEmpty)
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _candidates.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, i) {
+                    final c = _candidates[i];
+                    return Card(
+                      child: ListTile(
+                        onTap: () => _generateFinalRecipe(c['title'] ?? ''),
+                        leading: Image.network(
+                          c['image_url'] ?? '',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/images/recipe_placeholder.png',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            );
+                          },
+                        ),
+                        title: Text(c['title'] ?? 'No title'),
+                        subtitle: Text(c['description'] ?? 'No description'),
+                        ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
 }

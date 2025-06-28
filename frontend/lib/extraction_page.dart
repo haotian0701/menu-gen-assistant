@@ -110,7 +110,29 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                     controller: _extractionController),
                               ),
                               const SizedBox(height: 16),
-                              GenerateButton(controller: _extractionController),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GenerateButton(
+                                      controller: _extractionController,
+                                      mode: 'final',
+                                      label: 'Generate Instantly',
+                                      icon: Icons.flash_on,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                  SizedBox(width: 16),
+                                  Expanded(
+                                    child: GenerateButton(
+                                      controller: _extractionController,
+                                      mode: 'candidates',
+                                      label: 'Show Recipe Options',
+                                      icon: Icons.tune,
+                                      color: Color(0xFF1E40AF),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           );
                         } else if (isSmallScreen) {
@@ -133,8 +155,30 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           controller: _extractionController),
                                     ),
                                     const SizedBox(height: 16),
-                                    GenerateButton(
-                                        controller: _extractionController),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GenerateButton(
+                                            controller: _extractionController,
+                                            mode: 'final',
+                                            label: 'Generate Instantly',
+                                            icon: Icons.flash_on,
+                                            color: Color(0xFF059669),
+                                          ),
+                                        ),
+                                        SizedBox(width: 16),
+                                        Expanded(
+                                          child: GenerateButton(
+                                            controller: _extractionController,
+                                            mode: 'candidates',
+                                            label: 'Show Recipe Options',
+                                            icon: Icons.tune,
+                                            color: Color(0xFF1E40AF),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
                                   ],
                                 ),
                               ),
@@ -160,8 +204,30 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           controller: _extractionController),
                                     ),
                                     const SizedBox(height: 16),
-                                    GenerateButton(
-                                        controller: _extractionController),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GenerateButton(
+                                            controller: _extractionController,
+                                            mode: 'final',
+                                            label: 'Generate Instantly',
+                                            icon: Icons.flash_on,
+                                            color: Color(0xFF059669),
+                                          ),
+                                        ),
+                                        SizedBox(width: 16),
+                                        Expanded(
+                                          child: GenerateButton(
+                                            controller: _extractionController,
+                                            mode: 'candidates',
+                                            label: 'Show Recipe Options',
+                                            icon: Icons.tune,
+                                            color: Color(0xFF1E40AF),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
                                   ],
                                 ),
                               ),
@@ -912,10 +978,10 @@ class _ImageDisplay extends StatelessWidget {
     const baseH = 32.0, extraH = 14.0, padV = 4.0;
 
     // Helper to clamp bounding-box coordinates into [0,1]
-    double _norm(num? v) => (v ?? 0).toDouble().clamp(0.0, 1.0);
+    double norm(num? v) => (v ?? 0).toDouble().clamp(0.0, 1.0);
 
     // Helper to measure text width precisely
-    double _textWidth(String txt, TextStyle style) {
+    double textWidth(String txt, TextStyle style) {
       final tp = TextPainter(
         text: TextSpan(text: txt, style: style),
         maxLines: 1,
@@ -928,10 +994,10 @@ class _ImageDisplay extends StatelessWidget {
       final it = items[i];
       final box = it['bounding_box'] as Map<String, dynamic>;
       // Sanity-checked & normalised coordinates
-      final xMin = _norm(box['x_min']);
-      final yMin = _norm(box['y_min']);
-      final xMax = _norm(box['x_max']);
-      final yMax = _norm(box['y_max']);
+      final xMin = norm(box['x_min']);
+      final yMin = norm(box['y_min']);
+      final xMax = norm(box['x_max']);
+      final yMax = norm(box['y_max']);
 
       // Skip obviously broken boxes
       if (xMax < xMin || yMax < yMin) continue;
@@ -952,9 +1018,9 @@ class _ImageDisplay extends StatelessWidget {
       // Calculate chip dimensions using real text metrics for accuracy
       const labelStyle = TextStyle(fontSize: 12);
       const addStyle = TextStyle(fontSize: 10);
-      double w = _textWidth(displayLabel, labelStyle);
+      double w = textWidth(displayLabel, labelStyle);
       if (hasAdd) {
-        w = math.max(w, _textWidth(add, addStyle));
+        w = math.max(w, textWidth(add, addStyle));
       }
       final chipW = (w + 24).clamp(60.0, displayWidth * 0.8);
       final chipH = baseH + (hasAdd ? extraH : 0) + padV * 2;
@@ -977,8 +1043,8 @@ class _ImageDisplay extends StatelessWidget {
 
       Rect? place;
       for (final cand in candidates) {
-        final cx = cand.dx.clamp(0.0, displayWidth - chipW) as double;
-        final cy = cand.dy.clamp(0.0, displayHeight - chipH) as double;
+        final cx = cand.dx.clamp(0.0, displayWidth - chipW);
+        final cy = cand.dy.clamp(0.0, displayHeight - chipH);
         final r = Rect.fromLTWH(cx, cy, chipW, chipH);
         if (!occupied.any((o) => o.overlaps(r))) {
           place = r;
@@ -989,19 +1055,19 @@ class _ImageDisplay extends StatelessWidget {
       // Fallback: vertical scan downward from above-centre
       if (place == null) {
         double cx = (objectLeft + objectWidth / 2 - chipW / 2)
-            .clamp(0.0, displayWidth - chipW) as double;
-        double cy = (objectTop - chipH - gap).clamp(0.0, displayHeight - chipH) as double;
+            .clamp(0.0, displayWidth - chipW);
+        double cy = (objectTop - chipH - gap).clamp(0.0, displayHeight - chipH);
         Rect r = Rect.fromLTWH(cx, cy, chipW, chipH);
         int attempts = 0;
         while (occupied.any((o) => o.overlaps(r)) && attempts < 20) {
-          cy = (cy + baseH * 0.5 + 4).clamp(0.0, displayHeight - chipH) as double;
+          cy = (cy + baseH * 0.5 + 4).clamp(0.0, displayHeight - chipH);
           r = Rect.fromLTWH(cx, cy, chipW, chipH);
           attempts++;
         }
         place = r;
       }
 
-      final placeRect = place!; // safe: place is always set by now
+      final placeRect = place; // safe: place is always set by now
       occupied.add(placeRect);
 
       widgets.add(
@@ -1348,10 +1414,18 @@ class OptionsGrid extends StatelessWidget {
 
 class GenerateButton extends StatelessWidget {
   final ExtractionController controller;
+  final String mode;
+  final String label;
+  final IconData icon;
+  final Color color;
 
   const GenerateButton({
     super.key,
     required this.controller,
+    required this.mode,
+    required this.label,
+    required this.icon,
+    required this.color,
   });
 
   @override
@@ -1400,7 +1474,7 @@ class GenerateButton extends StatelessWidget {
                     ),
                     SizedBox(width: isSmallScreen ? 8 : 10),
                     Text(
-                      'Generate Recipe',
+                      label,
                       style: TextStyle(
                         fontSize: isSmallScreen ? 16 : 18,
                         fontWeight: FontWeight.w500,
@@ -1442,6 +1516,7 @@ class GenerateButton extends StatelessWidget {
               ? null
               : controller.selectedDiet,
           manualLabels: labels,
+          mode: mode, 
         ),
       ),
     );

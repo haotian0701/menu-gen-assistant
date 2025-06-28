@@ -1,14 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'account_icon_button.dart';
 import 'generating_page.dart';
 import 'extraction_page.dart';
-import 'main.dart';
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -383,7 +380,7 @@ class RecipeSection extends StatelessWidget {
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       RecipeContent(recipe: recipe),
                       SizedBox(height: isMobilePortrait ? 24 : 32),
@@ -431,7 +428,7 @@ class RecipeHeader extends StatelessWidget {
         final isMobilePortrait = isSmallScreen && isPortrait;
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               pageTitle.isNotEmpty ? pageTitle : 'Generated Recipe',
@@ -952,6 +949,7 @@ class ActionButtons extends StatelessWidget {
           mealTime: mealTime,
           amountPeople: amountPeople,
           restrictDiet: restrictDiet,
+          mode: 'candidates',
         ),
       ),
     );

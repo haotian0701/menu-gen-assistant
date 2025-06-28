@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -609,7 +608,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                        style: ElevatedButton.styleFrom(fixedSize: const Size.fromHeight(50),),
                         onPressed: (detectedItems == null || detectedItems!.isEmpty) ? null : _onGeneratePressed,
                         child: const Text('Generate Recipe'),
                       ),
