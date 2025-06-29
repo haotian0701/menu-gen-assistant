@@ -115,16 +115,6 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                   Expanded(
                                     child: GenerateButton(
                                       controller: _extractionController,
-                                      mode: 'final',
-                                      label: 'Generate Instantly',
-                                      icon: Icons.flash_on,
-                                      color: Color(0xFF059669),
-                                    ),
-                                  ),
-                                  SizedBox(width: 16),
-                                  Expanded(
-                                    child: GenerateButton(
-                                      controller: _extractionController,
                                       mode: 'candidates',
                                       label: 'Show Recipe Options',
                                       icon: Icons.tune,
@@ -157,16 +147,6 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [
-                                        Expanded(
-                                          child: GenerateButton(
-                                            controller: _extractionController,
-                                            mode: 'final',
-                                            label: 'Generate Instantly',
-                                            icon: Icons.flash_on,
-                                            color: Color(0xFF059669),
-                                          ),
-                                        ),
-                                        SizedBox(width: 16),
                                         Expanded(
                                           child: GenerateButton(
                                             controller: _extractionController,
@@ -206,16 +186,6 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [
-                                        Expanded(
-                                          child: GenerateButton(
-                                            controller: _extractionController,
-                                            mode: 'final',
-                                            label: 'Generate Instantly',
-                                            icon: Icons.flash_on,
-                                            color: Color(0xFF059669),
-                                          ),
-                                        ),
-                                        SizedBox(width: 16),
                                         Expanded(
                                           child: GenerateButton(
                                             controller: _extractionController,
@@ -302,10 +272,21 @@ class ExtractionController extends ChangeNotifier {
 
   void _initializeState() {
     // Initialize selected options
-    _selectedMeal = initialMealType ?? _mealTypes.first;
-    _selectedGoal = initialDietaryGoal ?? _dietaryGoals.first;
-    _selectedTime = initialMealTime ?? _mealTimeOptions.first;
-    _selectedPeople = initialAmountPeople ?? _amountPeopleOptions.first;
+    _selectedMeal = (initialMealType != null && _mealTypes.contains(initialMealType))
+        ? initialMealType!
+        : _mealTypes.first;
+
+    _selectedGoal = (initialDietaryGoal != null && _dietaryGoals.contains(initialDietaryGoal))
+        ? initialDietaryGoal!
+        : _dietaryGoals.first;
+
+    _selectedTime = (initialMealTime != null && _mealTimeOptions.contains(initialMealTime))
+        ? initialMealTime!
+        : _mealTimeOptions.first;
+
+    _selectedPeople = (initialAmountPeople != null && _amountPeopleOptions.contains(initialAmountPeople))
+        ? initialAmountPeople!
+        : _amountPeopleOptions.first;
 
     if (initialRestrictDiet != null &&
         initialRestrictDiet!.isNotEmpty &&

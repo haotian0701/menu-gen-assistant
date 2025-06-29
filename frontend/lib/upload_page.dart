@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'extraction_page.dart';
 import 'account_icon_button.dart';
+import 'generating_page.dart';
 
 // =============================================================================
 // MAIN PAGE CLASS
@@ -80,6 +81,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                 child: StatusPanel(
                                   controller: _uploadController,
                                   onGenerateRecipe: _handleGenerateRecipe,
+                                  onGenerateInstant: _handleInstantGenerate,
                                 ),
                               ),
                             ],
@@ -102,6 +104,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                 child: StatusPanel(
                                   controller: _uploadController,
                                   onGenerateRecipe: _handleGenerateRecipe,
+                                  onGenerateInstant: _handleInstantGenerate,
                                 ),
                               ),
                             ],
@@ -129,6 +132,25 @@ class _UploadImagePageState extends State<UploadImagePage> {
         MaterialPageRoute(
           builder: (_) =>
               ExtractionPage(imageUrl: _uploadController.uploadedUrl!),
+        ),
+      );
+    }
+  }
+
+  void _handleInstantGenerate() {
+    if (_uploadController.uploadedUrl != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GeneratingPage(
+            imageUrl: _uploadController.uploadedUrl!,
+            mealType: '',
+            dietaryGoal: 'normal',
+            mealTime: 'fast',
+            amountPeople: '1',
+            restrictDiet: null,
+            manualLabels: const <Map<String, dynamic>>[],
+            mode: 'final',
+          ),
         ),
       );
     }
@@ -386,6 +408,25 @@ class UploadSection extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (_) => ExtractionPage(
                                       imageUrl: controller.uploadedUrl!),
+                                ),
+                              );
+                            }
+                          }),
+                          const SizedBox(height: 12),
+                          GenerateInstantlyButton(onGenerateInstant: () {
+                            if (controller.uploadedUrl != null) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => GeneratingPage(
+                                    imageUrl: controller.uploadedUrl!,
+                                    mealType: '',
+                                    dietaryGoal: 'normal',
+                                    mealTime: 'fast',
+                                    amountPeople: '1',
+                                    restrictDiet: null,
+                                    manualLabels: const <Map<String, dynamic>>[],
+                                    mode: 'final',
+                                  ),
                                 ),
                               );
                             }
@@ -755,11 +796,13 @@ class UploadButton extends StatelessWidget {
 class StatusPanel extends StatelessWidget {
   final UploadController controller;
   final VoidCallback onGenerateRecipe;
+  final VoidCallback onGenerateInstant;
 
   const StatusPanel({
     super.key,
     required this.controller,
     required this.onGenerateRecipe,
+    required this.onGenerateInstant,
   });
 
   @override
@@ -772,8 +815,11 @@ class StatusPanel extends StatelessWidget {
             children: [
               const StatusCard(),
               const SizedBox(height: 16),
-              if (controller.isReadyForGeneration)
+              if (controller.isReadyForGeneration) ...[
                 GenerateRecipeButton(onGenerateRecipe: onGenerateRecipe),
+                const SizedBox(height: 12),
+                GenerateInstantlyButton(onGenerateInstant: onGenerateInstant),
+              ],
             ],
           ),
         );
@@ -930,10 +976,37 @@ class GenerateRecipeButton extends StatelessWidget {
                 ),
                 SizedBox(width: isSmallScreen ? 4 : 6),
                 Text(
-                  'Identify Items',
+                  'Extract Labels',
                   style: TextStyle(
                     fontSize: isSmallScreen ? 11 : 13,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                TooltipTheme(
+                  data: TooltipTheme.of(context).copyWith(
+                    textStyle: const TextStyle(fontSize: 15, color: Colors.white),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade800.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: Tooltip(
+                    richMessage: TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: 'Advanced Mode: Get Your Chef Hat On!\n\n',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(text: _advancedModeBody),
+                      ],
+                    ),
+                    waitDuration: const Duration(milliseconds: 300),
+                    child: Icon(
+                      Icons.info_outline,
+                      size: isSmallScreen ? 12 : 14,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -944,3 +1017,95 @@ class GenerateRecipeButton extends StatelessWidget {
     );
   }
 }
+
+class GenerateInstantlyButton extends StatelessWidget {
+  final VoidCallback onGenerateInstant;
+
+  const GenerateInstantlyButton({super.key, required this.onGenerateInstant});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 300;
+        final buttonHeight = isSmallScreen ? 36.0 : 44.0;
+
+        return Container(
+          width: double.infinity,
+          height: buttonHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            onPressed: onGenerateInstant,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.flash_on,
+                  size: isSmallScreen ? 14 : 16,
+                ),
+                SizedBox(width: isSmallScreen ? 4 : 6),
+                Text(
+                  'Generate Instantly',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 11 : 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                TooltipTheme(
+                  data: TooltipTheme.of(context).copyWith(
+                    textStyle: const TextStyle(fontSize: 15, color: Colors.white),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade800.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: Tooltip(
+                    richMessage: TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: 'Quick Mode: The "Abracadabra" of Recipes!\n\n',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(text: _quickModeBody),
+                      ],
+                    ),
+                    waitDuration: const Duration(milliseconds: 300),
+                    child: Icon(
+                      Icons.info_outline,
+                      size: isSmallScreen ? 12 : 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+const String _advancedModeBody = 'Ready to get specific? In Advanced Mode, you\'re in full control.\n\nDouble-check your detected food items, then add important details like the meal type you\'re aiming for and any food restrictions to keep things delicious and safe.\n\nWe\'ll then present you with 3 tempting recipe suggestions for your discerning palate.\n\nIt\'s like building your perfect meal, brick by delicious brick!';
+
+const String _quickModeBody = 'No time to spare? No problem! Quick Mode is our express lane to deliciousness.\n\nJust hit the button and we\'ll instantly conjure up a recipe for you.\n\nIt\'s the fastest way to go from "what should I eat?" to "yum!"';
