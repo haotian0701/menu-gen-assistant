@@ -729,7 +729,7 @@ class UploadButton extends StatelessWidget {
                 ),
                 child: controller.loading
                     ? _buildLoadingContent()
-                    : _buildNormalContent(),
+                    : _buildNormalContent(isSmallScreen),
               ),
             );
           },
@@ -762,16 +762,16 @@ class UploadButton extends StatelessWidget {
     );
   }
 
-  Widget _buildNormalContent() {
-    return const Row(
+  Widget _buildNormalContent(bool isSmallScreen) {
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.upload_file, size: 20),
-        SizedBox(width: 10),
+        const Icon(Icons.upload_file, size: 20),
+        const SizedBox(width: 10),
         Text(
           'Upload Image',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isSmallScreen ? 14 : 16,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -835,7 +835,7 @@ class StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 300;
+        final isSmallScreen = constraints.maxWidth < 500;
         final padding = isSmallScreen ? 12.0 : 20.0;
 
         return Container(
@@ -939,81 +939,131 @@ class GenerateRecipeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 300;
+        final isSmallScreen = constraints.maxWidth < 500;
         final buttonHeight = isSmallScreen ? 36.0 : 44.0;
 
-        return Container(
-          width: double.infinity,
-          height: buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF059669).withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: onGenerateRecipe,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.analytics_outlined,
-                  size: isSmallScreen ? 14 : 16,
-                ),
-                SizedBox(width: isSmallScreen ? 4 : 6),
-                Text(
-                  'Extract Labels',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 11 : 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                TooltipTheme(
-                  data: TooltipTheme.of(context).copyWith(
-                    textStyle: const TextStyle(fontSize: 15, color: Colors.white),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade800.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  child: Tooltip(
-                    richMessage: TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: 'Advanced Mode: Get Your Chef Hat On!\n\n',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextSpan(text: _advancedModeBody),
-                      ],
-                    ),
-                    waitDuration: const Duration(milliseconds: 300),
-                    child: Icon(
-                      Icons.info_outline,
-                      size: isSmallScreen ? 12 : 14,
-                      color: Colors.white,
-                    ),
-                  ),
+        if (!isSmallScreen) {
+          // Desktop / large – previous layout
+          return Container(
+            width: double.infinity,
+            height: buttonHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: ElevatedButton(
+              onPressed: onGenerateRecipe,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.analytics_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  const Text('Extract Labels',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 6),
+                  _infoIcon(context, false),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Small screen – main action + separate grey info button (1/6 width)
+        return SizedBox(
+          height: buttonHeight,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.analytics_outlined, size: 14),
+                  label: const Text('Extract Labels',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  onPressed: onGenerateRecipe,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(8),
+                        bottomLeft: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Advanced Mode'),
+                        content: const Text(_advancedModeBody),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade600,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Icon(Icons.info_outline, size: 18, color: Colors.white),
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _infoIcon(BuildContext context, bool isSmallScreen) {
+    return Tooltip(
+      richMessage: TextSpan(
+        children: [
+          const TextSpan(
+            text: 'Advanced Mode: Get Your Chef Hat On!\n\n',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: _advancedModeBody),
+        ],
+      ),
+      waitDuration: const Duration(milliseconds: 300),
+      child: Icon(
+        Icons.info_outline,
+        size: isSmallScreen ? 22 : 14,
+        color: Colors.white,
+      ),
     );
   }
 }
@@ -1027,81 +1077,130 @@ class GenerateInstantlyButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 300;
+        final isSmallScreen = constraints.maxWidth < 500;
         final buttonHeight = isSmallScreen ? 36.0 : 44.0;
 
-        return Container(
-          width: double.infinity,
-          height: buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2563EB).withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: onGenerateInstant,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.flash_on,
-                  size: isSmallScreen ? 14 : 16,
-                ),
-                SizedBox(width: isSmallScreen ? 4 : 6),
-                Text(
-                  'Generate Instantly',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 11 : 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                TooltipTheme(
-                  data: TooltipTheme.of(context).copyWith(
-                    textStyle: const TextStyle(fontSize: 15, color: Colors.white),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade800.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  child: Tooltip(
-                    richMessage: TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: 'Quick Mode: The "Abracadabra" of Recipes!\n\n',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextSpan(text: _quickModeBody),
-                      ],
-                    ),
-                    waitDuration: const Duration(milliseconds: 300),
-                    child: Icon(
-                      Icons.info_outline,
-                      size: isSmallScreen ? 12 : 14,
-                      color: Colors.white,
-                    ),
-                  ),
+        if (!isSmallScreen) {
+          return Container(
+            width: double.infinity,
+            height: buttonHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: ElevatedButton(
+              onPressed: onGenerateInstant,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.flash_on, size: 16),
+                  const SizedBox(width: 6),
+                  const Text('Generate Instantly',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 6),
+                  _infoIcon(context, false),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // small screen
+        return SizedBox(
+          height: buttonHeight,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.flash_on, size: 14),
+                  label: const Text('Generate Instantly',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  onPressed: onGenerateInstant,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(8),
+                        bottomLeft: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Quick Mode'),
+                        content: const Text(_quickModeBody),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade600,
+                    elevation: 0,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                  child: const Icon(Icons.info_outline, size: 18, color: Colors.white),
+                ),
+              )
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _infoIcon(BuildContext context, bool isSmallScreen) {
+    return Tooltip(
+      richMessage: TextSpan(
+        children: [
+          const TextSpan(
+            text: 'Quick Mode: The "Abracadabra" of Recipes!\n\n',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: _quickModeBody),
+        ],
+      ),
+      waitDuration: const Duration(milliseconds: 300),
+      child: Icon(
+        Icons.info_outline,
+        size: isSmallScreen ? 22 : 14,
+        color: Colors.white,
+      ),
     );
   }
 }

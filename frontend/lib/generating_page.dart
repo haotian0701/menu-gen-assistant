@@ -272,31 +272,46 @@ Widget build(BuildContext context) {
             const SizedBox(height: 24),
             if (_showCandidates && _candidates.isNotEmpty)
               Expanded(
-                child: ListView.separated(
-                  itemCount: _candidates.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, i) {
-                    final c = _candidates[i];
-                    return Card(
-                      child: ListTile(
-                        onTap: () => _generateFinalRecipe(c['title'] ?? ''),
-                        leading: Image.network(
-                          c['image_url'] ?? '',
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset(
-                              'assets/images/recipe_placeholder.png',
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isSmallScreen = constraints.maxWidth < 800;
+                    if (isSmallScreen) {
+                      // Keep vertical list for mobile / narrow
+                      return ListView.separated(
+                        itemCount: _candidates.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, i) => _CandidateCard(
+                          candidate: _candidates[i],
+                          onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? ''),
+                          fullWidth: true,
+                        ),
+                      );
+                    }
+
+                    // Wide screen – show cards side-by-side
+                    final perCardSpace = constraints.maxWidth / _candidates.length;
+                    final cardWidth = perCardSpace * 0.7; // 30% smaller than full slot
+
+                    return Center(
+                      child: SizedBox(
+                        height: constraints.maxHeight * 0.7, // 30% shorter
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(_candidates.length, (i) {
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: SizedBox(
+                                width: cardWidth,
+                                child: _CandidateCard(
+                                  candidate: _candidates[i],
+                                  onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? ''),
+                                  fullWidth: false,
+                                ),
+                              ),
                             );
-                          },
+                          }),
                         ),
-                        title: Text(c['title'] ?? 'No title'),
-                        subtitle: Text(c['description'] ?? 'No description'),
-                        ),
+                      ),
                     );
                   },
                 ),
@@ -307,4 +322,95 @@ Widget build(BuildContext context) {
     ),
   );
 }
+}
+
+// =============================================================================
+// CANDIDATE CARD WIDGET
+// =============================================================================
+class _CandidateCard extends StatefulWidget {
+  final Map<String, dynamic> candidate;
+  final VoidCallback onSelect;
+  final bool fullWidth;
+
+  const _CandidateCard({
+    Key? key,
+    required this.candidate,
+    required this.onSelect,
+    required this.fullWidth,
+  }) : super(key: key);
+
+  @override
+  State<_CandidateCard> createState() => _CandidateCardState();
+}
+
+class _CandidateCardState extends State<_CandidateCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.candidate['title'] ?? 'No title';
+    final desc = widget.candidate['description'] ?? '';
+    final imgUrl = widget.candidate['image_url'] ?? '';
+
+    final cardColor = _hover ? Colors.grey.shade200 : Colors.grey.shade50;
+    final elevation = _hover ? 6.0 : 2.0;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onSelect,
+        child: AnimatedScale(
+          scale: _hover ? 1.05 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: Card(
+            elevation: elevation,
+            color: cardColor,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: imgUrl.isNotEmpty
+                      ? Image.network(
+                          imgUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/images/recipe_placeholder.png',
+                              fit: BoxFit.cover),
+                        )
+                      : Image.asset('assets/images/recipe_placeholder.png',
+                          fit: BoxFit.cover),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        desc,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
