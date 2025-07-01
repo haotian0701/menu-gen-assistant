@@ -314,15 +314,21 @@ Instructions:
     - Preferred Region: ${preferred_region || 'Any'}
     - Skill Level: ${skill_level || 'Beginner'}
     - Kitchen Tools Available: ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
-    Suggest 3 possible recipe candidates.
-    For each, only return:
-    - title: a plausible dish name in English
-    - description: one sentence description of the dish, suitable for a preview list
 
-    Return ONLY valid JSON array of objects, e.g.:
+    Your task: Suggest exactly 3 RECIPE IDEAS that satisfy **all** the constraints above.
+    • If a *Strict Dietary Restriction* is provided (e.g. "Vegan", "Gluten-free"), every candidate MUST comply with it; do NOT suggest dishes that inherently violate the restriction.
+    • The *Dietary Goal* (fat_loss / muscle_gain / normal) should be reflected in the kind of dish you propose.
+    • Take the available kitchen tools into account – do not propose a recipe that relies on a tool that is not listed (unless "Any" was specified).
+    • The meal type and preferred region should inform the style / cuisine of the dish.
+
+    Output format: **return ONLY valid JSON** – an array with 3 objects. Each object contains:
+      - "title": a concise English dish name
+      - "description": one short sentence that tells the user what the dish is like
+
+    Example (format only):
     [
-      {"title": "...", "description": "..."},
-      ...
+      {"title":"Grilled Tofu Buddha Bowl","description":"A protein-rich vegan bowl with colourful veggies and quinoa."},
+      ... 2 more objects ...
     ]
     `.trim();
       const candidateResp = await fetch(GEMINI_TEXT_ENDPOINT, {
