@@ -127,33 +127,79 @@ class _UploadImagePageState extends State<UploadImagePage> {
   }
 
   void _handleGenerateRecipe() {
-    if (_uploadController.uploadedUrl != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) =>
-              ExtractionPage(imageUrl: _uploadController.uploadedUrl!),
-        ),
-      );
-    }
+    _navigateToExtraction();
   }
 
   void _handleInstantGenerate() {
-    if (_uploadController.uploadedUrl != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => GeneratingPage(
-            imageUrl: _uploadController.uploadedUrl!,
-            mealType: '',
-            dietaryGoal: 'normal',
-            mealTime: 'fast',
-            amountPeople: '1',
-            restrictDiet: null,
-            manualLabels: const <Map<String, dynamic>>[],
-            mode: 'final',
-          ),
+    _generateInstantly();
+  }
+
+  Future<Map<String, dynamic>?> _fetchPreferences() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) return null;
+
+    final resp = await client
+        .from('user_preferences')
+        .select()
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (resp == null || resp.isEmpty) return null;
+    return resp as Map<String, dynamic>;
+  }
+
+  Future<void> _navigateToExtraction() async {
+    if (_uploadController.uploadedUrl == null) return;
+    final prefs = await _fetchPreferences();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExtractionPage(
+          imageUrl: _uploadController.uploadedUrl!,
+          initialMealType: prefs?['meal_type'] as String?,
+          initialDietaryGoal: prefs?['dietary_goal'] as String?,
+          initialMealTime: prefs?['meal_time'] as String?,
+          initialAmountPeople: prefs?['amount_people'] as String?,
+          initialRestrictDiet: prefs?['restrict_diet'] as String?,
+          initialPreferredRegion: prefs?['preferred_region'] as String?,
+          initialSkillLevel: prefs?['skill_level'] as String?,
+          initialKitchenTools: (prefs?['kitchen_tools'] as List?)?.cast<String>() ?? ['Stove Top', 'Oven'],
         ),
-      );
-    }
+      ),
+    );
+  }
+
+  Future<void> _generateInstantly() async {
+    if (_uploadController.uploadedUrl == null) return;
+
+    final prefs = await _fetchPreferences();
+
+    final mealType = prefs?['meal_type'] as String? ?? 'general';
+    final dietaryGoal = prefs?['dietary_goal'] as String? ?? 'normal';
+    final mealTime = prefs?['meal_time'] as String? ?? 'fast';
+    final amountPeople = prefs?['amount_people'] as String? ?? '1';
+    final restrictDiet = prefs?['restrict_diet'] as String?;
+    final preferredRegion = prefs?['preferred_region'] as String?;
+    final skillLevel = prefs?['skill_level'] as String?;
+    final kitchenTools = (prefs?['kitchen_tools'] as List?)?.cast<String>() ?? ['Stove Top', 'Oven'];
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GeneratingPage(
+          imageUrl: _uploadController.uploadedUrl!,
+          mealType: mealType,
+          dietaryGoal: dietaryGoal,
+          mealTime: mealTime,
+          amountPeople: amountPeople,
+          restrictDiet: restrictDiet,
+          preferredRegion: preferredRegion,
+          skillLevel: skillLevel,
+          kitchenTools: kitchenTools,
+          manualLabels: const <Map<String, dynamic>>[],
+          mode: 'final',
+        ),
+      ),
+    );
   }
 }
 

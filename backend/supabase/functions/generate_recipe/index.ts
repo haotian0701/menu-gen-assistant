@@ -100,10 +100,14 @@ serve(async (req)=>{
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { user_id, image_url, meal_type = "dinner", 
+    const { user_id, image_url, meal_type = "", 
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
       preferred_region, skill_level, kitchen_tools } = body;
+
+    // Handle the new neutral 'general' option
+    const mealTypeForPrompt = (!meal_type || meal_type.toLowerCase() === 'general') ? 'not specified' : meal_type;
+
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
         return new Response(JSON.stringify({
@@ -302,7 +306,7 @@ Instructions:
       // 1. Prompt Gemini
       const candidatesPrompt = `
     Given these available ingredients: ${ingredientText}
-    - Meal Type: ${meal_type}
+    - Meal Type: ${mealTypeForPrompt}
     - Dietary Goal: ${dietary_goal}
     - People Eating: ${amount_people || 'not specified'}
     - Preferred Cooking Time: ${meal_time || 'not specified'}
@@ -429,7 +433,7 @@ Instructions:
     const recipePrompt = `Generate a recipe based on these details:
 - **Title (If provided, use as recipe title):** ${selected_title || ''}
 - **Ingredients Available:** ${ingredientText}
-- **Meal Type:** ${meal_type}
+- **Meal Type:** ${mealTypeForPrompt}
 - **Dietary Goal:** ${dietary_goal}
 - **People Eating:** ${amount_people || 'not specified'}
 - **Preferred Cooking Time:** ${meal_time || 'not specified'}
@@ -544,7 +548,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     }
     // ================================================
     const categories = [];
-    if (meal_type && meal_type.toLowerCase() !== 'normal') {
+    if (meal_type && meal_type.toLowerCase() !== 'normal' && meal_type.toLowerCase() !== 'general') {
       categories.push(meal_type);
     }
     if (dietary_goal && dietary_goal.toLowerCase() !== 'normal') {

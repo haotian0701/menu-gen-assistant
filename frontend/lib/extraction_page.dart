@@ -18,6 +18,9 @@ class ExtractionPage extends StatefulWidget {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? initialPreferredRegion;
+  final String? initialSkillLevel;
+  final List<String>? initialKitchenTools;
 
   const ExtractionPage({
     super.key,
@@ -29,6 +32,9 @@ class ExtractionPage extends StatefulWidget {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.initialPreferredRegion,
+    this.initialSkillLevel,
+    this.initialKitchenTools,
   });
 
   @override
@@ -51,6 +57,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
       initialMealTime: widget.initialMealTime,
       initialAmountPeople: widget.initialAmountPeople,
       initialRestrictDiet: widget.initialRestrictDiet,
+      initialPreferredRegion: widget.initialPreferredRegion,
+      initialSkillLevel: widget.initialSkillLevel,
+      initialKitchenTools: widget.initialKitchenTools,
     );
   }
 
@@ -230,6 +239,9 @@ class ExtractionController extends ChangeNotifier {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? initialPreferredRegion;
+  final String? initialSkillLevel;
+  final List<String>? initialKitchenTools;
 
 
   List<Map<String, dynamic>>? _detectedItems;
@@ -246,7 +258,7 @@ class ExtractionController extends ChangeNotifier {
   late String _selectedDiet;
 
   // Options for dropdowns
-  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
+  final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
   final _amountPeopleOptions = ['1', '2', '4', '6+'];
@@ -279,6 +291,9 @@ class ExtractionController extends ChangeNotifier {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.initialPreferredRegion,
+    this.initialSkillLevel,
+    this.initialKitchenTools,
   }) {
     _initializeState();
   }
@@ -308,9 +323,12 @@ class ExtractionController extends ChangeNotifier {
     } else {
       _selectedDiet = 'None';
     }
-    _selectedRegion = _preferredRegions.first;
-    _selectedSkill = _skillLevels.first;
-    _selectedKitchenTools = <String>{};
+    _selectedRegion = initialPreferredRegion ?? _preferredRegions.first;
+    _selectedSkill = initialSkillLevel ?? _skillLevels.first;
+    // Default to common basic tools when no list provided
+    _selectedKitchenTools = initialKitchenTools != null
+        ? Set<String>.from(initialKitchenTools!)
+        : {'Stove Top', 'Oven'};
 
     if (isRegenerating &&
         initialDetectedItems != null &&
