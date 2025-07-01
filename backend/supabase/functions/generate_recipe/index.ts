@@ -100,7 +100,10 @@ serve(async (req)=>{
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { user_id, image_url, meal_type = "dinner", dietary_goal = "normal", mode, manual_labels, restrict_diet, amount_people, meal_time, selected_title, stage } = body;
+    const { user_id, image_url, meal_type = "dinner", 
+      dietary_goal = "normal", mode, manual_labels, restrict_diet, 
+      amount_people, meal_time, selected_title, stage,
+      preferred_region, skill_level, kitchen_tools } = body;
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
         return new Response(JSON.stringify({
@@ -304,7 +307,9 @@ Instructions:
     - People Eating: ${amount_people || 'not specified'}
     - Preferred Cooking Time: ${meal_time || 'not specified'}
     ${restrict_diet && restrict_diet.trim() !== "" ? `- Strict Dietary Restriction: ${restrict_diet}` : ''}
-
+    - Preferred Region: ${preferred_region || 'Any'}
+    - Skill Level: ${skill_level || 'Beginner'}
+    - Kitchen Tools Available: ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
     Suggest 3 possible recipe candidates.
     For each, only return:
     - title: a plausible dish name in English
@@ -429,7 +434,9 @@ Instructions:
 - **People Eating:** ${amount_people || 'not specified'}
 - **Preferred Cooking Time:** ${meal_time || 'not specified'}
 ${restrict_diet && restrict_diet.trim() !== "" ? `- **Strict Dietary Restriction to follow:** ${restrict_diet}` : ''}
-
+- **Preferred Region/Cuisine:** ${preferred_region || 'Any'}
+- **Skill Level:** ${skill_level || 'Beginner'}
+- **Kitchen Tools Available:** ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
 **Output Format Instructions:**
 Format the entire response as a single block of valid HTML. Do NOT include \`\`\`html fences or any text outside the HTML structure.
 The HTML should include:
@@ -560,7 +567,10 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       amount_people,
       restrict_diet,
       detected_items: items,
-      tags: categories
+      tags: categories,
+      preferred_region,     
+      skill_level,           
+      kitchen_tools 
     });
     // Ensure we always have some image URL to send back 
     if (!main_image_url) {

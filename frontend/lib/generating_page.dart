@@ -15,6 +15,9 @@ class GeneratingPage extends StatefulWidget {
   final String? amountPeople;
   final String? restrictDiet;
   final String mode;
+  final String? preferredRegion;
+  final String? skillLevel;
+  final List<String>? kitchenTools;
 
   final List<Map<String, dynamic>>? manualLabels;
 
@@ -27,6 +30,9 @@ class GeneratingPage extends StatefulWidget {
     this.amountPeople,
     this.manualLabels,
     this.restrictDiet,
+    this.preferredRegion,
+    this.skillLevel,
+    this.kitchenTools,
     required this.mode,
   });
 

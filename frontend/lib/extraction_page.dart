@@ -231,6 +231,7 @@ class ExtractionController extends ChangeNotifier {
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
 
+
   List<Map<String, dynamic>>? _detectedItems;
   bool _isLoading = true;
   String? _errorMessage;
@@ -256,6 +257,18 @@ class ExtractionController extends ChangeNotifier {
     'Gluten-free',
     'Lactose-free'
   ];
+  final _preferredRegions = ['Any', 'Asia', 'Europe', 'Mediterranean', 'America',
+  'Middle Eastern', 'African', 'Latin American',];
+  final _skillLevels = ['Beginner', 'Intermediate', 'Advanced'];
+  final _kitchenTools = [
+    'Stove Top', 'Oven', 'Microwave', 'Air Fryer', 'Sous Vide Machine',
+    'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
+  ];
+
+  // State for extra fields
+  late String _selectedRegion;
+  late String _selectedSkill;
+  late Set<String> _selectedKitchenTools;
 
   ExtractionController({
     required this.imageUrl,
@@ -295,6 +308,9 @@ class ExtractionController extends ChangeNotifier {
     } else {
       _selectedDiet = 'None';
     }
+    _selectedRegion = _preferredRegions.first;
+    _selectedSkill = _skillLevels.first;
+    _selectedKitchenTools = <String>{};
 
     if (isRegenerating &&
         initialDetectedItems != null &&
@@ -323,7 +339,13 @@ class ExtractionController extends ChangeNotifier {
   List<String> get restrictDietOptions => _restrictDietOptions;
   bool get hasDetectedItems =>
       _detectedItems != null && _detectedItems!.isNotEmpty;
+  String get selectedRegion => _selectedRegion;
+  String get selectedSkill => _selectedSkill;
+  Set<String> get selectedKitchenTools => _selectedKitchenTools;
 
+  List<String> get preferredRegions => _preferredRegions;
+  List<String> get skillLevels => _skillLevels;
+  List<String> get kitchenTools => _kitchenTools;
   // Setters
   void setSelectedMeal(String value) {
     if (_disposed) return;
@@ -352,6 +374,25 @@ class ExtractionController extends ChangeNotifier {
   void setSelectedDiet(String value) {
     if (_disposed) return;
     _selectedDiet = value;
+    notifyListeners();
+  }
+  void setSelectedRegion(String value) {
+    if (_disposed) return;
+    _selectedRegion = value;
+    notifyListeners();
+  }
+  void setSelectedSkill(String value) {
+    if (_disposed) return;
+    _selectedSkill = value;
+    notifyListeners();
+  }
+  void toggleKitchenTool(String tool) {
+    if (_disposed) return;
+    if (_selectedKitchenTools.contains(tool)) {
+      _selectedKitchenTools.remove(tool);
+    } else {
+      _selectedKitchenTools.add(tool);
+    }
     notifyListeners();
   }
 
@@ -399,6 +440,9 @@ class ExtractionController extends ChangeNotifier {
               'meal_time': _selectedTime,
               'amount_people': _selectedPeople,
               'restrict_diet': _selectedDiet == 'None' ? '' : _selectedDiet,
+              'preferred_region': _selectedRegion,
+              'skill_level': _selectedSkill,
+              'kitchen_tools': _selectedKitchenTools.toList(),
             }),
           )
           .timeout(const Duration(seconds: 60));
@@ -1332,6 +1376,8 @@ class OptionsGrid extends StatelessWidget {
               controller.setSelectedDiet,
               isSmallScreen,
             ),
+            SizedBox(height: isSmallScreen ? 16 : 20),
+            _AdvancedOptions(controller: controller, isSmallScreen: isSmallScreen),
           ],
         );
       },
@@ -1384,6 +1430,163 @@ class OptionsGrid extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+class _AdvancedOptions extends StatefulWidget {
+  final ExtractionController controller;
+  final bool isSmallScreen;
+  const _AdvancedOptions({required this.controller, required this.isSmallScreen});
+
+  @override
+  State<_AdvancedOptions> createState() => _AdvancedOptionsState();
+}
+
+class _AdvancedOptionsState extends State<_AdvancedOptions> {
+  bool _show = false;
+  @override
+  Widget _buildOptionField(
+    String label,
+    String currentValue,
+    List<String> options,
+    void Function(String) onChanged,
+    bool isSmallScreen,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isSmallScreen ? 13 : 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: currentValue,
+              items: options
+                  .map((e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(
+                          e,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 13 : 14,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) => onChanged(value!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final isSmallScreen = widget.isSmallScreen;
+    final tools = controller.kitchenTools;
+    final half = (tools.length / 2).ceil();
+    final left = tools.take(half).toList();
+    final right = tools.skip(half).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          onPressed: () => setState(() => _show = !_show),
+          icon: Icon(_show ? Icons.expand_less : Icons.expand_more),
+          label: Text(_show ? 'Hide More Options' : 'Show More Options'),
+        ),
+        if (_show) ...[
+          Row(
+            children: [
+              Expanded(
+                child: _buildOptionField(
+                  'Preferred Region',
+                  controller.selectedRegion,
+                  controller.preferredRegions,
+                  controller.setSelectedRegion,
+                  isSmallScreen,
+                ),
+              ),
+              SizedBox(width: isSmallScreen ? 12 : 16),
+              Expanded(
+                child: _buildOptionField(
+                  'Skill Level',
+                  controller.selectedSkill,
+                  controller.skillLevels,
+                  controller.setSelectedSkill,
+                  isSmallScreen,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isSmallScreen ? 16 : 20),
+          Text(
+            'Kitchen Tools',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 13 : 14,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+          SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: left.map((tool) =>
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(tool,
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 13 : 14,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      value: controller.selectedKitchenTools.contains(tool),
+                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
+                    )
+                  ).toList(),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  children: right.map((tool) =>
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(tool,
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 13 : 14,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      value: controller.selectedKitchenTools.contains(tool),
+                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
+                    )
+                  ).toList(),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -1496,6 +1699,9 @@ class GenerateButton extends StatelessWidget {
           restrictDiet: controller.selectedDiet == 'None'
               ? null
               : controller.selectedDiet,
+          preferredRegion: controller.selectedRegion,
+          skillLevel: controller.selectedSkill,
+          kitchenTools: controller.selectedKitchenTools.toList(),
           manualLabels: labels,
           mode: mode, 
         ),
