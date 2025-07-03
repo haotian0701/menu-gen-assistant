@@ -87,8 +87,9 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
 const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17";
+const GEMINI_VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_TEXT_ENDPOINT = GEMINI_VISION_ENDPOINT;
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
@@ -280,7 +281,7 @@ Instructions:
           "Content-Type": "application/json",
           "x-goog-api-key": GEMINI_API_KEY
         },
-        body: JSON.stringify(visionPayload)
+        body: JSON.stringify({ ...visionPayload, generationConfig: { thinkingConfig: { thinkingBudget: 0 } } })
       });
       if (!visionResp.ok) {
         const errText = await visionResp.text();
@@ -407,12 +408,11 @@ Instructions:
           contents: [
             {
               parts: [
-                {
-                  text: candidatesPrompt
-                }
+                { text: candidatesPrompt }
               ]
             }
-          ]
+          ],
+          generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
         })
       });
       if (!candidateResp.ok) {
@@ -534,13 +534,10 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       body: JSON.stringify({
         contents: [
           {
-            parts: [
-              {
-                text: recipePrompt
-              }
-            ]
+            parts: [ { text: recipePrompt } ]
           }
-        ]
+        ],
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
       })
     });
     if (!recipeResp.ok) {
