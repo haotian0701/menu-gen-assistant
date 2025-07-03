@@ -82,7 +82,8 @@ class _ExtractionPageState extends State<ExtractionPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // ← Add this line
+      backgroundColor: const Color(0xFFF8FAFC),
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
@@ -104,36 +105,39 @@ class _ExtractionPageState extends State<ExtractionPage> {
                             innerConstraints.maxWidth;
 
                         if (isSmallScreen && isPortrait) {
-                          // Mobile portrait - stack vertically
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: ImageSection(
-                                    controller: _extractionController),
-                              ),
-                              const SizedBox(height: 24),
-                              Expanded(
-                                flex: 2,
-                                child: OptionsSection(
-                                    controller: _extractionController),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GenerateButton(
-                                      controller: _extractionController,
-                                      mode: 'candidates',
-                                      label: 'Show Recipe Options',
-                                      icon: Icons.tune,
-                                      color: Color(0xFF1E40AF),
+                          // Mobile portrait – make image taller and enable scrolling
+                          final availableH = innerConstraints.maxHeight;
+                          final imgH = availableH * 0.65; // 65% for image
+
+                          return SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  height: imgH,
+                                  child: ImageSection(controller: _extractionController),
+                                ),
+                                const SizedBox(height: 24),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OptionsSection(controller: _extractionController),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: GenerateButton(
+                                        controller: _extractionController,
+                                        mode: 'candidates',
+                                        label: 'Show Recipe Options',
+                                        icon: Icons.tune,
+                                        color: Color(0xFF1E40AF),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         } else if (isSmallScreen) {
                           // Small screen landscape - side by side
@@ -151,8 +155,11 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: OptionsSection(
-                                          controller: _extractionController),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        child: OptionsSection(
+                                            controller: _extractionController),
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     Row(
@@ -190,8 +197,11 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: OptionsSection(
-                                          controller: _extractionController),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        child: OptionsSection(
+                                            controller: _extractionController),
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     Row(
@@ -1439,7 +1449,7 @@ class OptionsGrid extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             border: Border.all(color: Colors.grey.shade200),
@@ -1501,7 +1511,7 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             border: Border.all(color: Colors.grey.shade200),
@@ -1580,46 +1590,29 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
             ),
           ),
           SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: left.map((tool) =>
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(tool,
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 13 : 14,
-                          color: const Color(0xFF1E293B),
-                        ),
+          LayoutBuilder(
+            builder: (ctx, ct) {
+              final itemWidth = (ct.maxWidth / 2) - (isSmallScreen ? 6 : 8);
+              return Wrap(
+                spacing: isSmallScreen ? 6 : 8,
+                runSpacing: 0,
+                children: tools.map((tool) => SizedBox(
+                  width: itemWidth,
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(tool,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 13 : 14,
+                        color: const Color(0xFF1E293B),
                       ),
-                      value: controller.selectedKitchenTools.contains(tool),
-                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
-                    )
-                  ).toList(),
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  children: right.map((tool) =>
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(tool,
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 13 : 14,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                      value: controller.selectedKitchenTools.contains(tool),
-                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
-                    )
-                  ).toList(),
-                ),
-              ),
-            ],
+                    ),
+                    value: controller.selectedKitchenTools.contains(tool),
+                    onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
+                  ),
+                )).toList(),
+              );
+            },
           ),
         ],
       ],

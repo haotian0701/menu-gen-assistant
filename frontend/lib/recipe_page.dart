@@ -333,79 +333,181 @@ class RecipeSection extends StatelessWidget {
         final isMobilePortrait = isSmallScreen && isPortrait;
         final padding = isMobilePortrait ? 16.0 : (isSmallScreen ? 24.0 : 40.0);
 
-        return Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(padding),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: isMobilePortrait ? 6 : 10,
-                offset: const Offset(0, 4),
+        if (isMobilePortrait) {
+          return SingleChildScrollView(
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(padding),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: RecipeHeader(pageTitle: pageTitle)),
-                if (mainImageUrl != null && mainImageUrl!.isNotEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 16, bottom: 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          mainImageUrl!,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Image.asset(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (mainImageUrl?.isNotEmpty == true)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        mainImageUrl!,
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.asset(
                             'assets/images/recipe_placeholder.png',
-                            height: 200,
-                            fit: BoxFit.cover,
-                          ),
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover),
+                      ),
+                    ),
+                  if (mainImageUrl == null || mainImageUrl?.isEmpty == true)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/images/recipe_placeholder.png',
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover),
+                    ),
+                  const SizedBox(height: 20),
+                  Text(
+                    pageTitle,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (videoUrl?.isNotEmpty == true)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(videoUrl!), mode: LaunchMode.externalApplication),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.red.shade400, size: 28),
+                            const SizedBox(width: 8),
+                            Text('Watch on YouTube', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ),
                     ),
+                  RecipeContent(recipe: recipe),
+                  const SizedBox(height: 24),
+                  ActionButtons(
+                    pageTitle: pageTitle,
+                    recipe: recipe,
+                    imageUrl: imageUrl,
+                    detectedItems: detectedItems,
+                    mealType: mealType,
+                    dietaryGoal: dietaryGoal,
+                    mealTime: mealTime,
+                    amountPeople: amountPeople,
+                    restrictDiet: restrictDiet,
                   ),
-              SizedBox(
-                  height: isMobilePortrait ? 16 : (isSmallScreen ? 24 : 32)),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      RecipeContent(recipe: recipe),
-                      SizedBox(height: isMobilePortrait ? 24 : 32),
-                      if (videoUrl != null && videoUrl!.isNotEmpty) ...[
-                        VideoButton(videoUrl: videoUrl!),
-                        SizedBox(height: isMobilePortrait ? 20 : 24),
-                      ],
-                      ActionButtons(
-                        pageTitle: pageTitle,
-                        recipe: recipe,
-                        imageUrl: imageUrl,
-                        detectedItems: detectedItems,
-                        mealType: mealType,
-                        dietaryGoal: dietaryGoal,
-                        mealTime: mealTime,
-                        amountPeople: amountPeople,
-                        restrictDiet: restrictDiet,
-                      ),
-                    ],
+                ],
+              ),
+            ),
+          );
+        } else {
+          return Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
+              border: Border.all(
+                color: Colors.grey.shade200,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: isMobilePortrait ? 6 : 10,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (mainImageUrl?.isNotEmpty == true)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
+                    child: Image.network(
+                      mainImageUrl!,
+                      width: double.infinity,
+                      height: isMobilePortrait ? 180 : 240,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                          'assets/images/recipe_placeholder.png',
+                          width: double.infinity,
+                          height: isMobilePortrait ? 180 : 240,
+                          fit: BoxFit.cover),
+                    ),
+                  ),
+                if (mainImageUrl == null || mainImageUrl?.isEmpty == true)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
+                    child: Image.asset(
+                      'assets/images/recipe_placeholder.png',
+                      width: double.infinity,
+                      height: isMobilePortrait ? 180 : 240,
+                      fit: BoxFit.cover),
+                  ),
+                const SizedBox(height: 20),
+                Text(
+                  pageTitle,
+                  style: TextStyle(
+                    fontSize: isMobilePortrait ? 22 : 28,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
+                const SizedBox(height: 12),
+                if (videoUrl?.isNotEmpty == true)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: GestureDetector(
+                      onTap: () => launchUrl(Uri.parse(videoUrl!), mode: LaunchMode.externalApplication),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.play_circle_fill, color: Colors.red.shade400, size: 28),
+                          const SizedBox(width: 8),
+                          Text('Watch on YouTube', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                RecipeContent(recipe: recipe),
+                const SizedBox(height: 24),
+                ActionButtons(
+                  pageTitle: pageTitle,
+                  recipe: recipe,
+                  imageUrl: imageUrl,
+                  detectedItems: detectedItems,
+                  mealType: mealType,
+                  dietaryGoal: dietaryGoal,
+                  mealTime: mealTime,
+                  amountPeople: amountPeople,
+                  restrictDiet: restrictDiet,
+                ),
+              ],
+            ),
+          );
+        }
       },
     );
   }
