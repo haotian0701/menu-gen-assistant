@@ -996,15 +996,19 @@ class _ImageDisplay extends StatelessWidget {
   Future<Size> _getImageSize(String url) async {
     final completer = Completer<Size>();
     final image = Image.network(url);
-    final listener = ImageStreamListener((info, _) {
+    final stream = image.image.resolve(const ImageConfiguration());
+    late final ImageStreamListener l;
+    l = ImageStreamListener((info, _) {
       completer.complete(Size(
         info.image.width.toDouble(),
         info.image.height.toDouble(),
       ));
+      stream.removeListener(l); // Prevent memory leak
     }, onError: (err, _) {
       completer.completeError(err ?? 'Image load error');
+      stream.removeListener(l);
     });
-    image.image.resolve(const ImageConfiguration()).addListener(listener);
+    stream.addListener(l);
     return completer.future;
   }
 

@@ -2,39 +2,57 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+// HTML sanitizer for XSS protection
+import sanitizeHtml from "npm:sanitize-html";
+
+// Simple in-memory throttle: IP ➜ last request timestamp
+const lastRequestMap: Map<string, number> = new Map();
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // === Added: helper + fallback for main image URL validation ===
 const FALLBACK_IMAGE_URL = "https://via.placeholder.com/640x480.png?text=Recipe+Image";
-async function validateImageUrl(url) {
+
+// Maximum image size we allow to download (bytes)
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function isPrivateIp(hostname: string) {
+  // Reject obvious private IPv4 ranges. This is a heuristic; tighten if needed.
+  const m = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
+  if (!m) return false;
+  const parts = hostname.split(".").map(Number);
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+async function validateImageUrl(url: string): Promise<string | null> {
   try {
     const u = new URL(url);
-    // enforce https only (mixed-content issues on web)
-    if (u.protocol !== "https:") return null;
-    // Fast-path: has common image extension
-    if (/\.(png|jpe?g|gif|webp)$/i.test(u.pathname)) {
-      return url;
-    }
-    // Otherwise, do a HEAD request to ensure the resource is actually an image
+    if (u.protocol !== "https:") return null; // HTTPS only
+    if (isPrivateIp(u.hostname)) return null;  // prevent SSRF
+
+    // HEAD request to verify type & size
     try {
-      const headResp = await fetch(url, {
-        method: "HEAD"
-      });
-      if (headResp.ok) {
-        const ct = headResp.headers.get("content-type") || "";
-        if (ct.startsWith("image/")) {
-          return url;
-        }
-      }
+      const headResp = await fetch(url, { method: "HEAD" });
+      if (!headResp.ok) return null;
+      const ct = headResp.headers.get("content-type") || "";
+      if (!ct.startsWith("image/")) return null;
+      const len = Number(headResp.headers.get("content-length"));
+      if (len && len > MAX_IMAGE_BYTES) return null;
     } catch (_) {
-    // ignore network errors, we'll fall through to null
+      return null;
     }
-  } catch  {
-  // Malformed URL
+    return url;
+  } catch {
+    return null;
   }
-  return null;
 }
+
 function extractRecipeTitle(html) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
@@ -79,28 +97,44 @@ if (!YOUTUBE_API_KEY) {
   console.warn("Missing YOUTUBE_API_KEY — video links will be omitted");
 }
 serve(async (req)=>{
-  // Handle CORS preflight requests
+  // ──────────────────────────────────────────────────────────
+  // Throttle: 1 request per IP per 5 s to protect Gemini quota
+  // ──────────────────────────────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  const now = Date.now();
+  const last = lastRequestMap.get(ip) ?? 0;
+  if (now - last < 5000) {
+    return new Response(JSON.stringify({ error: "Too many requests – wait a few seconds before trying again." }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+  lastRequestMap.set(ip, now);
+
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
-  // Validate API key
-  if (!GEMINI_API_KEY) {
-    return new Response(JSON.stringify({
-      error: "Server configuration error: Missing GEMINI_API_KEY."
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json"
-      }
-    });
+
+  // ──────────────────────────────────────────────────────────
+  // Authentication – optional: derive user if JWT present
+  // ──────────────────────────────────────────────────────────
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  let derived_user_id: string | null = null;
+  if (authHeader?.startsWith("Bearer ")) {
+    const jwt = authHeader.substring(7);
+    const { data: { user: authUser } = { user: null } } = await supabase.auth.getUser(jwt);
+    if (authUser) {
+      derived_user_id = authUser.id;
+    }
   }
+
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { user_id, image_url, meal_type = "", 
+    const { image_url, meal_type = "", 
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
       preferred_region, skill_level, kitchen_tools } = body;
@@ -121,6 +155,18 @@ serve(async (req)=>{
         });
       }
     }
+
+    // Validate incoming image URL early
+    if (image_url) {
+      const validatedInputUrl = await validateImageUrl(image_url);
+      if (!validatedInputUrl) {
+        return new Response(JSON.stringify({ error: "Invalid or disallowed image_url. HTTPS images up to 5 MB only." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     let sourceItems = []; // Raw items before grouping
     if (manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0) {
       console.log("Using manual labels as source.");
@@ -501,7 +547,16 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       });
     }
     const recipeData = await recipeResp.json();
-    const recipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
+    const rawRecipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
+    // Sanitize once server-side
+    const recipeHtml = sanitizeHtml(rawRecipeHtml, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
+      allowedAttributes: {
+        a: ["href", "title", "target"],
+        img: ["src", "alt"]
+      },
+      allowedSchemes: ["https"]
+    });
     // ====== YouTube Video Search Integration ======
     // Helper to extract the dish title from <h1>
     function extractTitle(html) {
@@ -564,24 +619,26 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       categories.push(restrict_diet);
     }
     const recipeTitle = extractRecipeTitle(recipeHtml);
-    const { data, error } = await supabase.from('history').insert({
-      user_id,
-      image_url,
-      recipe_html: recipeHtml,
-      recipe_title: recipeTitle,
-      main_image_url,
-      video_url,
-      meal_type,
-      dietary_goal,
-      meal_time,
-      amount_people,
-      restrict_diet,
-      detected_items: items,
-      tags: categories,
-      preferred_region,     
-      skill_level,           
-      kitchen_tools 
-    });
+    if (derived_user_id) {
+      await supabase.from('history').insert({
+        user_id: derived_user_id,
+        image_url,
+        recipe_html: recipeHtml,
+        recipe_title: recipeTitle,
+        main_image_url,
+        video_url,
+        meal_type,
+        dietary_goal,
+        meal_time,
+        amount_people,
+        restrict_diet,
+        detected_items: items,
+        tags: categories,
+        preferred_region,     
+        skill_level,           
+        kitchen_tools 
+      });
+    }
     // Ensure we always have some image URL to send back 
     if (!main_image_url) {
       main_image_url = FALLBACK_IMAGE_URL;
