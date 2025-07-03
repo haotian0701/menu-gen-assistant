@@ -268,8 +268,8 @@ Widget build(BuildContext context) {
             ),
           if (widget.mode == 'candidates') ...[
             ElevatedButton.icon(
-              icon: const Icon(Icons.tune),
-              label: const Text('Show Recipe Options'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh Options'),
               onPressed: _loadingCandidates ? null : _generateCandidates,
             ),
             const SizedBox(height: 24),
