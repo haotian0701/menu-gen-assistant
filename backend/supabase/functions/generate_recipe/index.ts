@@ -96,6 +96,25 @@ if (!GEMINI_API_KEY) {
 if (!YOUTUBE_API_KEY) {
   console.warn("Missing YOUTUBE_API_KEY — video links will be omitted");
 }
+
+// ──────────────────────────────────────────────────────────
+//  Whitelists for user-selectable options (same lists as front-end)
+// ──────────────────────────────────────────────────────────
+const MEAL_TYPES = ['general', 'breakfast', 'lunch', 'dinner'];
+const DIETARY_GOALS = ['normal', 'fat_loss', 'muscle_gain'];
+const MEAL_TIMES = ['fast', 'medium', 'long'];
+const AMOUNT_PEOPLE = ['1', '2', '4', '6+'];
+const RESTRICT_DIETS = ['None', 'Vegan', 'Vegetarian', 'Gluten-free', 'Lactose-free'];
+const PREFERRED_REGIONS = ['Any', 'Asia', 'Europe', 'Mediterranean', 'America', 'Middle Eastern', 'African', 'Latin American'];
+const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+const KITCHEN_TOOLS = [
+  'Stove Top', 'Oven', 'Microwave', 'Air Fryer', 'Sous Vide Machine',
+  'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
+];
+
+// Manual-label text validation
+const LABEL_REGEX = /^[a-zA-Z0-9 ,.'()\-]{1,30}$/;
+
 serve(async (req)=>{
   // ──────────────────────────────────────────────────────────
   // Throttle: 1 request per IP per 5 s to protect Gemini quota
@@ -138,6 +157,35 @@ serve(async (req)=>{
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
       preferred_region, skill_level, kitchen_tools } = body;
+
+    // ─── Option Whitelist Validation ──────────────────────
+    const invalidMsgs:string[] = [];
+    if (meal_type && !MEAL_TYPES.includes(meal_type)) invalidMsgs.push(`meal_type '${meal_type}'`);
+    if (dietary_goal && !DIETARY_GOALS.includes(dietary_goal)) invalidMsgs.push(`dietary_goal '${dietary_goal}'`);
+    if (meal_time && !MEAL_TIMES.includes(meal_time)) invalidMsgs.push(`meal_time '${meal_time}'`);
+    if (amount_people && !AMOUNT_PEOPLE.includes(amount_people)) invalidMsgs.push(`amount_people '${amount_people}'`);
+    if (restrict_diet && !RESTRICT_DIETS.includes(restrict_diet)) invalidMsgs.push(`restrict_diet '${restrict_diet}'`);
+    if (preferred_region && !PREFERRED_REGIONS.includes(preferred_region)) invalidMsgs.push(`preferred_region '${preferred_region}'`);
+    if (skill_level && !SKILL_LEVELS.includes(skill_level)) invalidMsgs.push(`skill_level '${skill_level}'`);
+    if (kitchen_tools && Array.isArray(kitchen_tools)) {
+      const illegalTools = kitchen_tools.filter((t)=>!KITCHEN_TOOLS.includes(t));
+      if (illegalTools.length) invalidMsgs.push(`kitchen_tools [${illegalTools.join(', ')}]`);
+    }
+
+    // Manual labels validation
+    if (manual_labels && Array.isArray(manual_labels)) {
+      for (const { item_label, additional_info } of manual_labels) {
+        if (item_label && (!LABEL_REGEX.test(item_label))) invalidMsgs.push(`item_label '${item_label}'`);
+        if (additional_info && (!LABEL_REGEX.test(additional_info))) invalidMsgs.push(`additional_info '${additional_info}'`);
+      }
+    }
+
+    if (invalidMsgs.length) {
+      return new Response(JSON.stringify({ error: `Invalid input for field(s): ${invalidMsgs.join(', ')}.` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
     // Handle the new neutral 'general' option
     const mealTypeForPrompt = (!meal_type || meal_type.toLowerCase() === 'general') ? 'not specified' : meal_type;

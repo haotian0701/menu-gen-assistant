@@ -1193,7 +1193,11 @@ class _ImageDisplay extends StatelessWidget {
               TextField(
                 controller: labelCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Item Label'),
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: 'Item Label',
+                  counterText: '',
+                ),
               ),
               if (!showAdditional)
                 TextButton.icon(
@@ -1206,8 +1210,10 @@ class _ImageDisplay extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8.0),
                   child: TextField(
                     controller: addCtrl,
+                    maxLength: 30,
                     decoration: const InputDecoration(
-                        labelText: 'Additional Info (optional)'),
+                        labelText: 'Additional Info (optional)',
+                        counterText: ''),
                   ),
                 ),
             ],
