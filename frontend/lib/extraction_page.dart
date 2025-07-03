@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'error_utils.dart';
 
 import 'generating_page.dart';
 import 'account_icon_button.dart';
@@ -468,7 +469,13 @@ class ExtractionController extends ChangeNotifier {
       if (_disposed) return;
 
       if (resp.statusCode != 200) {
-        throw Exception('Status ${resp.statusCode}: ${resp.body}');
+        final parsed = parseErrorResponse(resp.statusCode, resp.body);
+        final msg = parsed.userError
+            ? parsed.message
+            : 'Unexpected error occurred. Please try again.';
+        _setErrorMessage(msg);
+        _setLoading(false);
+        return;
       }
 
       final data = jsonDecode(resp.body);
@@ -497,7 +504,7 @@ class ExtractionController extends ChangeNotifier {
         return _fetchDetectedItems();
       }
       _setLoading(false);
-      _setErrorMessage('Error fetching items: $e');
+      _setErrorMessage('Network error – please check your connection and try again.');
     }
   }
 

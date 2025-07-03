@@ -115,6 +115,14 @@ const KITCHEN_TOOLS = [
 // Manual-label text validation
 const LABEL_REGEX = /^[a-zA-Z0-9 ,.'()\-]{1,30}$/;
 
+// Helper to build consistent error responses
+function respondError(status: number, message: string, userError = false) {
+  return new Response(JSON.stringify({ error: message, user_error: userError }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+}
+
 serve(async (req)=>{
   // ──────────────────────────────────────────────────────────
   // Throttle: 1 request per IP per 5 s to protect Gemini quota
@@ -181,10 +189,7 @@ serve(async (req)=>{
     }
 
     if (invalidMsgs.length) {
-      return new Response(JSON.stringify({ error: `Invalid input for field(s): ${invalidMsgs.join(', ')}.` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return respondError(400, `Invalid input for: ${invalidMsgs.join(', ')}`, true);
     }
 
     // Handle the new neutral 'general' option
@@ -192,15 +197,7 @@ serve(async (req)=>{
 
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
-        return new Response(JSON.stringify({
-          error: "Missing 'image_url' in request body"
-        }), {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        return respondError(400, "Missing 'image_url' in request body", true);
       }
     }
 
@@ -208,10 +205,7 @@ serve(async (req)=>{
     if (image_url) {
       const validatedInputUrl = await validateImageUrl(image_url);
       if (!validatedInputUrl) {
-        return new Response(JSON.stringify({ error: "Invalid or disallowed image_url. HTTPS images up to 5 MB only." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return respondError(400, "Unsupported image URL. Use HTTPS images up to 5 MB.", true);
       }
     }
 
@@ -231,12 +225,7 @@ serve(async (req)=>{
       const imageResp = await fetch(image_url);
       if (!imageResp.ok) {
         console.error(`Failed to download image: ${imageResp.status}`);
-        return new Response(JSON.stringify({
-          error: "Failed to download image"
-        }), {
-          status: 400,
-          headers: corsHeaders
-        });
+        return respondError(400, "Unable to download the provided image.", true);
       }
       const imageBlob = await imageResp.blob();
       const arrayBuffer = await imageBlob.arrayBuffer();
@@ -296,16 +285,7 @@ Instructions:
       if (!visionResp.ok) {
         const errText = await visionResp.text();
         console.error("Vision API error:", errText);
-        return new Response(JSON.stringify({
-          error: "Vision API error",
-          detail: errText
-        }), {
-          status: visionResp.status,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        return respondError(502, "Image-analysis service failed. Please try again.", false);
       }
       const visionData = await visionResp.json();
       const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -317,15 +297,7 @@ Instructions:
       console.log("Raw detected items from Vision API:", sourceItems.map((i)=>`${i._source_quantity} ${i.item_label}`).join(", "));
     } else {
       // Should not happen if checks above are correct, but as a fallback
-      return new Response(JSON.stringify({
-        error: "Missing 'image_url' or 'manual_labels' in request body"
-      }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
+      return respondError(400, "Missing 'image_url' or 'manual_labels' in request body", true);
     }
     // **** GROUPING AND QUANTIFICATION STEP (applies to all sources) ****
     const labelMap = new Map();
@@ -445,16 +417,7 @@ Instructions:
       });
       if (!candidateResp.ok) {
         const errText = await candidateResp.text();
-        return new Response(JSON.stringify({
-          error: "Candidate recipe generation failed",
-          detail: errText
-        }), {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        return respondError(502, "Could not generate recipe candidates. Please retry.", false);
       }
       const candidateData = await candidateResp.json();
       let candidateList = [];
@@ -583,16 +546,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     if (!recipeResp.ok) {
       const errText = await recipeResp.text();
       console.error("Recipe API error:", errText);
-      return new Response(JSON.stringify({
-        error: "Recipe generation API error",
-        detail: errText
-      }), {
-        status: recipeResp.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
+      return respondError(502, "Failed to generate recipe. Please try again later.", false);
     }
     const recipeData = await recipeResp.json();
     const rawRecipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
@@ -706,14 +660,6 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     });
   } catch (error) {
     console.error("Unhandled error in Edge Function:", error);
-    return new Response(JSON.stringify({
-      error: error.message || "An internal server error occurred."
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json"
-      }
-    });
+    return respondError(500, "Unexpected server error. Please try again.", false);
   }
 });

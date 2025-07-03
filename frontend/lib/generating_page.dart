@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'error_utils.dart';
 
 import 'recipe_page.dart';
 
@@ -122,25 +123,19 @@ class _GeneratingPageState extends State<GeneratingPage> {
             'Bearer ${accessToken ?? anonKey}', // Use accessToken or fallback to anonKey
       };
 
-      final resp = await http.post(
-        uri,
-        headers: headers,
-        body: jsonEncode(body),
+      final data = await handleJsonPost(
+        future: http.post(uri, headers: headers, body: jsonEncode(body)),
+        context: context,
       );
-
-      if (resp.statusCode != 200) {
-        setState(() { _error = 'Failed to get candidates'; _loadingCandidates = false; });
-        return;
+      if (data != null && mounted) {
+        setState(() {
+          _candidates = List<Map<String, dynamic>>.from(data['candidates'] as List);
+        });
       }
-
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      setState(() {
-        _candidates = List<Map<String, dynamic>>.from(data['candidates'] as List);
-      });
+    } catch (e) {
+      // errors already handled via handleJsonPost snackbar; no further action
     } finally {
-      setState(() {
-        _loadingCandidates = false;
-      });
+      if (mounted) setState(() => _loadingCandidates = false);
     }
   }
 
@@ -180,9 +175,11 @@ class _GeneratingPageState extends State<GeneratingPage> {
   };
 
   try {
-    final resp = await http.post(uri, headers: headers, body: jsonEncode(body));
-    if (resp.statusCode != 200) throw Exception('Failed to generate recipe: ${resp.body}');
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final data = await handleJsonPost(
+      future: http.post(uri, headers: headers, body: jsonEncode(body)),
+      context: context,
+    );
+    if (data == null) return;
 
     final recipe = data['recipe'] as String;
     final items = (data['items'] as List).cast<Map<String, dynamic>>();
