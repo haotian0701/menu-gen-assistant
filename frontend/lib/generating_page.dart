@@ -55,7 +55,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
       _generateCandidates();
     } else if (widget.mode == 'final') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _generateFinalRecipe('');
+        _generateFinalRecipe('', '');
       });
     }
   }
@@ -140,7 +140,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
   }
 
 
-  Future<void> _generateFinalRecipe(String selectedTitle) async {
+  Future<void> _generateFinalRecipe(String selectedTitle, [String? selectedImage]) async {
   setState(() { 
     _generatingFinal = true;
     _loadingCandidates = false;
@@ -165,6 +165,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
   if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
   if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
   if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
+  if (selectedImage != null && selectedImage.isNotEmpty) {
+    body['client_image_url'] = selectedImage;
+  }
   if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
     body['manual_labels'] = widget.manualLabels;
   }
@@ -264,7 +267,7 @@ Widget build(BuildContext context) {
             ElevatedButton.icon(
               icon: const Icon(Icons.flash_on),
               label: const Text('Generate Instantly'),
-              onPressed: _loadingDefault ? null : () => _generateFinalRecipe(''),
+              onPressed: _loadingDefault ? null : () => _generateFinalRecipe('', ''),
             ),
           if (widget.mode == 'candidates') ...[
             ElevatedButton.icon(
@@ -285,7 +288,7 @@ Widget build(BuildContext context) {
                         separatorBuilder: (_, __) => const SizedBox(height: 16),
                         itemBuilder: (context, i) => _CandidateCard(
                           candidate: _candidates[i],
-                          onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? ''),
+                          onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? '', _candidates[i]['image_url'] ?? ''),
                           fullWidth: true,
                         ),
                       );
@@ -307,7 +310,7 @@ Widget build(BuildContext context) {
                                 width: cardWidth,
                                 child: _CandidateCard(
                                   candidate: _candidates[i],
-                                  onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? ''),
+                                  onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? '', _candidates[i]['image_url'] ?? ''),
                                   fullWidth: false,
                                 ),
                               ),

@@ -124,6 +124,34 @@ function respondError(status: number, message: string, userError = false) {
   });
 }
 
+// Gemini image generation endpoint
+const GEMINI_IMAGE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent";
+
+async function generateDishImage(title: string): Promise<string | null> {
+  if (!GEMINI_API_KEY) return null;
+  const prompt = `Food photography of ${title}, plated on a neutral background, studio lighting`;
+  try {
+    const resp = await fetch(GEMINI_IMAGE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [ { parts: [ { text: prompt } ] } ],
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+      })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (b64) return `data:image/png;base64,${b64}`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req)=>{
   // ──────────────────────────────────────────────────────────
   // Throttle: 1 request per IP per 5 s to protect Gemini quota
@@ -165,7 +193,7 @@ serve(async (req)=>{
     const { image_url, meal_type = "", 
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
-      preferred_region, skill_level, kitchen_tools } = body;
+      preferred_region, skill_level, kitchen_tools, client_image_url } = body;
 
     // ─── Option Whitelist Validation ──────────────────────
     const invalidMsgs:string[] = [];
@@ -451,7 +479,7 @@ Instructions:
                 image_url = validated;
               }
               if (!image_url) {
-                image_url = FALLBACK_IMAGE_URL;
+                image_url = await generateDishImage(c.title);
               }
             }
           } catch (e) {
@@ -582,8 +610,8 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       }
     }
     // ============ Google Image Search Integration ============
-    let main_image_url = null;
-    if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
+    let main_image_url = client_image_url || null;
+    if (!main_image_url && GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
       try {
         const imgResp = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(dishTitle)}&searchType=image&num=1`);
         if (imgResp.ok) {
@@ -633,14 +661,15 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
         restrict_diet,
         detected_items: items,
         tags: categories,
-        preferred_region,     
-        skill_level,           
-        kitchen_tools 
+        preferred_region,
+        skill_level,
+        kitchen_tools
       });
     }
     // Ensure we always have some image URL to send back 
     if (!main_image_url) {
-      main_image_url = FALLBACK_IMAGE_URL;
+      main_image_url = await generateDishImage(dishTitle || "dish");
+      if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
     }
     return new Response(JSON.stringify({
       items,
