@@ -2,10 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:fl_chart/fl_chart.dart';
 import 'account_icon_button.dart';
 import 'generating_page.dart';
 import 'extraction_page.dart';
+
+
+
+class NutritionPieChart extends StatelessWidget {
+  final Map<String,double> data; // keys: 'protein','carbs','fat'
+
+  const NutritionPieChart({ super.key, required this.data });
+
+  @override
+  Widget build(BuildContext context) {
+    final pCal = data['protein']! * 4;
+    final cCal = data['carbs']!   * 4;
+    final fCal = data['fat']!     * 9;
+    return PieChart(
+      PieChartData(
+        sections: [
+          PieChartSectionData(value: pCal, title: 'Protein'),
+          PieChartSectionData(value: cCal, title: 'Carbs'),
+          PieChartSectionData(value: fCal, title: 'Fat'),
+        ],
+        sectionsSpace: 4,
+        centerSpaceRadius: 40,
+      ),
+    );
+  }
+}
+
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -137,6 +164,7 @@ class _RecipePageState extends State<RecipePage> {
                           amountPeople: widget.amountPeople,
                           restrictDiet: widget.restrictDiet,
                           mainImageUrl: widget.mainImageUrl, 
+                          nutritionInfo: widget.nutritionInfo,
                         ),
                       ),
                     ),
@@ -312,6 +340,7 @@ class RecipeSection extends StatelessWidget {
   final String amountPeople;
   final String restrictDiet;
   final String? mainImageUrl;
+  final Map<String,double>? nutritionInfo;
 
   const RecipeSection({
     super.key,
@@ -326,6 +355,7 @@ class RecipeSection extends StatelessWidget {
     required this.amountPeople,
     required this.restrictDiet,
     this.mainImageUrl,
+    this.nutritionInfo, 
   });
 
   @override
@@ -409,6 +439,15 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
+                  if (nutritionInfo != null) ...[
+                  const SizedBox(height: 24),
+                  Text('Nutritional Breakdown', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 200,
+                    child: NutritionPieChart(data: nutritionInfo!),
+                  ),
+                ],
                   const SizedBox(height: 24),
                   ActionButtons(
                     pageTitle: pageTitle,

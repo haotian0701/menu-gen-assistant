@@ -63,6 +63,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
       initialPreferredRegion: widget.initialPreferredRegion,
       initialSkillLevel: widget.initialSkillLevel,
       initialKitchenTools: widget.initialKitchenTools,
+      mode: widget.mode, 
     );
   }
 

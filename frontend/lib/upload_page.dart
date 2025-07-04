@@ -62,6 +62,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                           return UploadSection(
                             controller: _uploadController,
                             onUploadSuccess: _handleUploadSuccess,
+                            onGenerateFitness: _handleGenerateFitness,
                           );
                         } else if (isSmallScreen) {
                           // Small screen landscape - stack vertically with status panel
@@ -73,6 +74,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                 child: UploadSection(
                                   controller: _uploadController,
                                   onUploadSuccess: _handleUploadSuccess,
+                                  onGenerateFitness: _handleGenerateFitness,
                                 ),
                               ),
                               const SizedBox(height: 24),
@@ -97,6 +99,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                 child: UploadSection(
                                   controller: _uploadController,
                                   onUploadSuccess: _handleUploadSuccess,
+                                  onGenerateFitness: _handleGenerateFitness,
                                 ),
                               ),
                               const SizedBox(width: 24),
@@ -423,11 +426,13 @@ class NavigationSection extends StatelessWidget {
 class UploadSection extends StatelessWidget {
   final UploadController controller;
   final VoidCallback onUploadSuccess;
+  final VoidCallback onGenerateFitness;
 
   const UploadSection({
     super.key,
     required this.controller,
     required this.onUploadSuccess,
+    required this.onGenerateFitness,
   });
 
   @override
@@ -494,6 +499,8 @@ class UploadSection extends StatelessWidget {
                               );
                             }
                           }),
+                          const SizedBox(height: 12),
+                          GenerateFitnessButton(onGenerateFitness: onGenerateFitness),
                         ],
                       ],
                     )

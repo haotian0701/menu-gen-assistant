@@ -8,6 +8,8 @@ import 'error_utils.dart';
 
 import 'recipe_page.dart';
 
+int? parseInt(String? s) => int.tryParse(s ?? '');
+double? parseDouble(String? s) => double.tryParse(s ?? '');
 class GeneratingPage extends StatefulWidget {
   final String imageUrl;
   final String? mealType;
@@ -56,7 +58,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
     super.initState();
     if (widget.mode == 'candidates') {
       _generateCandidates();
-    } else if (widget.mode == 'final') {
+    } else if (widget.mode == 'final' || widget.mode == 'fitness') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _generateFinalRecipe('', '');
       });
@@ -131,9 +133,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
         context: context,
       );
       if (data != null && mounted) {
-        setState(() {
-          _candidates = List<Map<String, dynamic>>.from(data['candidates'] as List);
-        });
+      setState(() {
+        _candidates = List<Map<String, dynamic>>.from(data['candidates'] as List);
+      });
       }
     } catch (e) {
       // errors already handled via handleJsonPost snackbar; no further action
@@ -166,6 +168,25 @@ class _GeneratingPageState extends State<GeneratingPage> {
   if (widget.mode == 'fitness') {
     if (widget.fitnessData != null) body['fitness_data'] = widget.fitnessData;
     body['mode'] = 'fitness';
+    final fd = widget.fitnessData!;
+    if (fd['height'] != null && fd['height'].toString().isNotEmpty) {
+      body['height_cm'] = parseDouble(fd['height'].toString());
+    }
+    if (fd['weight'] != null && fd['weight'].toString().isNotEmpty) {
+      body['weight_kg'] = parseDouble(fd['weight'].toString());
+    }
+    if (fd['gender'] != null && fd['gender'].toString().isNotEmpty) {
+      body['gender'] = fd['gender'];
+    }
+    if (fd['age'] != null && fd['age'].toString().isNotEmpty) {
+      body['age'] = parseInt(fd['age'].toString());
+    }
+    if (fd['goal'] != null && fd['goal'].toString().isNotEmpty) {
+      body['fitness_goal'] = fd['goal'];
+    }
+    if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
+      body['manual_labels'] = widget.manualLabels;
+    }
   } else {
     body['meal_type'] = widget.mealType ?? '';
     body['dietary_goal'] = widget.dietaryGoal ?? '';
