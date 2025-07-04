@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'main.dart'; // For AuthPage
 import 'history_page.dart'; // For HistoryPage
+import 'preferences_page.dart';
 
 class AccountIconButton extends StatefulWidget {
   const AccountIconButton({super.key});
@@ -146,6 +147,10 @@ class _AccountIconButtonState extends State<AccountIconButton> {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AuthPage()),
                 );
+              } else if (value == 'preferences') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PreferencesPage()),
+                );
               } else if (value == 'logout') {
                 _signOut();
               }
@@ -253,6 +258,37 @@ class _AccountIconButtonState extends State<AccountIconButton> {
                         const SizedBox(width: 12),
                         const Text(
                           'Sign In / Sign Up',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (isLoggedIn)
+                PopupMenuItem<String>(
+                  value: 'preferences',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(
+                            Icons.settings,
+                            color: Color(0xFF6366F1),
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Default Preferences',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF374151),

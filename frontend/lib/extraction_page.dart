@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'error_utils.dart';
 
 import 'generating_page.dart';
 import 'account_icon_button.dart';
@@ -18,6 +19,9 @@ class ExtractionPage extends StatefulWidget {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? initialPreferredRegion;
+  final String? initialSkillLevel;
+  final List<String>? initialKitchenTools;
   final String? mode;
 
   const ExtractionPage({
@@ -30,6 +34,9 @@ class ExtractionPage extends StatefulWidget {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.initialPreferredRegion,
+    this.initialSkillLevel,
+    this.initialKitchenTools,
     this.mode,
   });
 
@@ -53,6 +60,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
       initialMealTime: widget.initialMealTime,
       initialAmountPeople: widget.initialAmountPeople,
       initialRestrictDiet: widget.initialRestrictDiet,
+      initialPreferredRegion: widget.initialPreferredRegion,
+      initialSkillLevel: widget.initialSkillLevel,
+      initialKitchenTools: widget.initialKitchenTools,
     );
   }
 
@@ -74,7 +84,8 @@ class _ExtractionPageState extends State<ExtractionPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // ← Add this line
+      backgroundColor: const Color(0xFFF8FAFC),
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
@@ -96,36 +107,39 @@ class _ExtractionPageState extends State<ExtractionPage> {
                             innerConstraints.maxWidth;
 
                         if (isSmallScreen && isPortrait) {
-                          // Mobile portrait - stack vertically
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: ImageSection(
-                                    controller: _extractionController),
-                              ),
-                              const SizedBox(height: 24),
-                              Expanded(
-                                flex: 2,
-                                child: OptionsSection(
-                                    controller: _extractionController),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GenerateButton(
-                                      controller: _extractionController,
-                                      mode: 'candidates',
-                                      label: 'Show Recipe Options',
-                                      icon: Icons.tune,
-                                      color: Color(0xFF1E40AF),
+                          // Mobile portrait – make image taller and enable scrolling
+                          final availableH = innerConstraints.maxHeight;
+                          final imgH = availableH * 0.65; // 65% for image
+
+                          return SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  height: imgH,
+                                  child: ImageSection(controller: _extractionController),
+                                ),
+                                const SizedBox(height: 24),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OptionsSection(controller: _extractionController),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: GenerateButton(
+                                        controller: _extractionController,
+                                        mode: 'candidates',
+                                        label: 'Show Recipe Options',
+                                        icon: Icons.tune,
+                                        color: Color(0xFF1E40AF),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         } else if (isSmallScreen) {
                           // Small screen landscape - side by side
@@ -143,8 +157,11 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: OptionsSection(
-                                          controller: _extractionController),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        child: OptionsSection(
+                                            controller: _extractionController),
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     Row(
@@ -182,8 +199,11 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: OptionsSection(
-                                          controller: _extractionController),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        child: OptionsSection(
+                                            controller: _extractionController),
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     Row(
@@ -246,6 +266,9 @@ class ExtractionController extends ChangeNotifier {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? initialPreferredRegion;
+  final String? initialSkillLevel;
+  final List<String>? initialKitchenTools;
   final String? mode;
 
 
@@ -263,7 +286,7 @@ class ExtractionController extends ChangeNotifier {
   late String _selectedDiet;
 
   // Options for dropdowns
-  final _mealTypes = ['breakfast', 'lunch', 'dinner'];
+  final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
   final _amountPeopleOptions = ['1', '2', '4', '6+'];
@@ -296,6 +319,9 @@ class ExtractionController extends ChangeNotifier {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.initialPreferredRegion,
+    this.initialSkillLevel,
+    this.initialKitchenTools,
     this.mode,
   }) {
     _initializeState();
@@ -326,9 +352,12 @@ class ExtractionController extends ChangeNotifier {
     } else {
       _selectedDiet = 'None';
     }
-    _selectedRegion = _preferredRegions.first;
-    _selectedSkill = _skillLevels.first;
-    _selectedKitchenTools = <String>{};
+    _selectedRegion = initialPreferredRegion ?? _preferredRegions.first;
+    _selectedSkill = initialSkillLevel ?? _skillLevels.first;
+    // Default to common basic tools when no list provided
+    _selectedKitchenTools = initialKitchenTools != null
+        ? Set<String>.from(initialKitchenTools!)
+        : {'Stove Top', 'Oven'};
 
     if (isRegenerating &&
         initialDetectedItems != null &&
@@ -470,7 +499,13 @@ class ExtractionController extends ChangeNotifier {
       if (_disposed) return;
 
       if (resp.statusCode != 200) {
-        throw Exception('Status ${resp.statusCode}: ${resp.body}');
+        final parsed = parseErrorResponse(resp.statusCode, resp.body);
+        final msg = parsed.userError
+            ? parsed.message
+            : 'Unexpected error occurred. Please try again.';
+        _setErrorMessage(msg);
+        _setLoading(false);
+        return;
       }
 
       final data = jsonDecode(resp.body);
@@ -499,7 +534,7 @@ class ExtractionController extends ChangeNotifier {
         return _fetchDetectedItems();
       }
       _setLoading(false);
-      _setErrorMessage('Error fetching items: $e');
+      _setErrorMessage('Network error – please check your connection and try again.');
     }
   }
 
@@ -1001,15 +1036,19 @@ class _ImageDisplay extends StatelessWidget {
   Future<Size> _getImageSize(String url) async {
     final completer = Completer<Size>();
     final image = Image.network(url);
-    final listener = ImageStreamListener((info, _) {
+    final stream = image.image.resolve(const ImageConfiguration());
+    late final ImageStreamListener l;
+    l = ImageStreamListener((info, _) {
       completer.complete(Size(
         info.image.width.toDouble(),
         info.image.height.toDouble(),
       ));
+      stream.removeListener(l); // Prevent memory leak
     }, onError: (err, _) {
       completer.completeError(err ?? 'Image load error');
+      stream.removeListener(l);
     });
-    image.image.resolve(const ImageConfiguration()).addListener(listener);
+    stream.addListener(l);
     return completer.future;
   }
 
@@ -1194,7 +1233,11 @@ class _ImageDisplay extends StatelessWidget {
               TextField(
                 controller: labelCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Item Label'),
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: 'Item Label',
+                  counterText: '',
+                ),
               ),
               if (!showAdditional)
                 TextButton.icon(
@@ -1207,8 +1250,10 @@ class _ImageDisplay extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8.0),
                   child: TextField(
                     controller: addCtrl,
+                    maxLength: 30,
                     decoration: const InputDecoration(
-                        labelText: 'Additional Info (optional)'),
+                        labelText: 'Additional Info (optional)',
+                        counterText: ''),
                   ),
                 ),
             ],
@@ -1519,7 +1564,7 @@ class OptionsGrid extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             border: Border.all(color: Colors.grey.shade200),
@@ -1582,7 +1627,7 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             border: Border.all(color: Colors.grey.shade200),
@@ -1661,46 +1706,29 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
             ),
           ),
           SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: left.map((tool) =>
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(tool,
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 13 : 14,
-                          color: const Color(0xFF1E293B),
-                        ),
+          LayoutBuilder(
+            builder: (ctx, ct) {
+              final itemWidth = (ct.maxWidth / 2) - (isSmallScreen ? 6 : 8);
+              return Wrap(
+                spacing: isSmallScreen ? 6 : 8,
+                runSpacing: 0,
+                children: tools.map((tool) => SizedBox(
+                  width: itemWidth,
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(tool,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 13 : 14,
+                        color: const Color(0xFF1E293B),
                       ),
-                      value: controller.selectedKitchenTools.contains(tool),
-                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
-                    )
-                  ).toList(),
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  children: right.map((tool) =>
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(tool,
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 13 : 14,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                      value: controller.selectedKitchenTools.contains(tool),
-                      onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
-                    )
-                  ).toList(),
-                ),
-              ),
-            ],
+                    ),
+                    value: controller.selectedKitchenTools.contains(tool),
+                    onChanged: (_) => setState(() => controller.toggleKitchenTool(tool)),
+                  ),
+                )).toList(),
+              );
+            },
           ),
         ],
       ],

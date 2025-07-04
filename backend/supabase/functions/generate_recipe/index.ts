@@ -2,39 +2,57 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+// HTML sanitizer for XSS protection
+import sanitizeHtml from "npm:sanitize-html";
+
+// Simple in-memory throttle: IP ➜ last request timestamp
+const lastRequestMap: Map<string, number> = new Map();
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // === Added: helper + fallback for main image URL validation ===
 const FALLBACK_IMAGE_URL = "https://via.placeholder.com/640x480.png?text=Recipe+Image";
-async function validateImageUrl(url) {
+
+// Maximum image size we allow to download (bytes)
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function isPrivateIp(hostname: string) {
+  // Reject obvious private IPv4 ranges. This is a heuristic; tighten if needed.
+  const m = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
+  if (!m) return false;
+  const parts = hostname.split(".").map(Number);
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+async function validateImageUrl(url: string): Promise<string | null> {
   try {
     const u = new URL(url);
-    // enforce https only (mixed-content issues on web)
-    if (u.protocol !== "https:") return null;
-    // Fast-path: has common image extension
-    if (/\.(png|jpe?g|gif|webp)$/i.test(u.pathname)) {
-      return url;
-    }
-    // Otherwise, do a HEAD request to ensure the resource is actually an image
+    if (u.protocol !== "https:") return null; // HTTPS only
+    if (isPrivateIp(u.hostname)) return null;  // prevent SSRF
+
+    // HEAD request to verify type & size
     try {
-      const headResp = await fetch(url, {
-        method: "HEAD"
-      });
-      if (headResp.ok) {
-        const ct = headResp.headers.get("content-type") || "";
-        if (ct.startsWith("image/")) {
-          return url;
-        }
-      }
+      const headResp = await fetch(url, { method: "HEAD" });
+      if (!headResp.ok) return null;
+      const ct = headResp.headers.get("content-type") || "";
+      if (!ct.startsWith("image/")) return null;
+      const len = Number(headResp.headers.get("content-length"));
+      if (len && len > MAX_IMAGE_BYTES) return null;
     } catch (_) {
-    // ignore network errors, we'll fall through to null
+      return null;
     }
-  } catch  {
-  // Malformed URL
+    return url;
+  } catch {
+    return null;
   }
-  return null;
 }
+
 function extractRecipeTitle(html) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
@@ -69,8 +87,9 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
 const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17";
+const GEMINI_VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_TEXT_ENDPOINT = GEMINI_VISION_ENDPOINT;
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
@@ -78,46 +97,148 @@ if (!GEMINI_API_KEY) {
 if (!YOUTUBE_API_KEY) {
   console.warn("Missing YOUTUBE_API_KEY — video links will be omitted");
 }
+
+// ──────────────────────────────────────────────────────────
+//  Whitelists for user-selectable options (same lists as front-end)
+// ──────────────────────────────────────────────────────────
+const MEAL_TYPES = ['general', 'breakfast', 'lunch', 'dinner'];
+const DIETARY_GOALS = ['normal', 'fat_loss', 'muscle_gain'];
+const MEAL_TIMES = ['fast', 'medium', 'long'];
+const AMOUNT_PEOPLE = ['1', '2', '4', '6+'];
+const RESTRICT_DIETS = ['None', 'Vegan', 'Vegetarian', 'Gluten-free', 'Lactose-free'];
+const PREFERRED_REGIONS = ['Any', 'Asia', 'Europe', 'Mediterranean', 'America', 'Middle Eastern', 'African', 'Latin American'];
+const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+const KITCHEN_TOOLS = [
+  'Stove Top', 'Oven', 'Microwave', 'Air Fryer', 'Sous Vide Machine',
+  'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
+];
+
+// Manual-label text validation
+const LABEL_REGEX = /^[a-zA-Z0-9 ,.'()\-]{1,30}$/;
+
+// Helper to build consistent error responses
+function respondError(status: number, message: string, userError = false) {
+  return new Response(JSON.stringify({ error: message, user_error: userError }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+}
+
+// Gemini image generation endpoint
+const GEMINI_IMAGE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent";
+
+async function generateDishImage(title: string): Promise<string | null> {
+  if (!GEMINI_API_KEY) return null;
+  const prompt = `Food photography of ${title}, plated on a neutral background, studio lighting`;
+  try {
+    const resp = await fetch(GEMINI_IMAGE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [ { parts: [ { text: prompt } ] } ],
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+      })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (b64) return `data:image/png;base64,${b64}`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req)=>{
-  // Handle CORS preflight requests
+  // ──────────────────────────────────────────────────────────
+  // Throttle: 1 request per IP per 5 s to protect Gemini quota
+  // ──────────────────────────────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  const now = Date.now();
+  const last = lastRequestMap.get(ip) ?? 0;
+  if (now - last < 5000) {
+    return new Response(JSON.stringify({ error: "Too many requests – wait a few seconds before trying again." }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+  lastRequestMap.set(ip, now);
+
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
-  // Validate API key
-  if (!GEMINI_API_KEY) {
-    return new Response(JSON.stringify({
-      error: "Server configuration error: Missing GEMINI_API_KEY."
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json"
-      }
-    });
+
+  // ──────────────────────────────────────────────────────────
+  // Authentication – optional: derive user if JWT present
+  // ──────────────────────────────────────────────────────────
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  let derived_user_id: string | null = null;
+  if (authHeader?.startsWith("Bearer ")) {
+    const jwt = authHeader.substring(7);
+    const { data: { user: authUser } = { user: null } } = await supabase.auth.getUser(jwt);
+    if (authUser) {
+      derived_user_id = authUser.id;
+    }
   }
+
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { user_id, image_url, meal_type = "dinner", 
+    const { image_url, meal_type = "", 
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
-      preferred_region, skill_level, kitchen_tools,
+      preferred_region, skill_level, kitchen_tools, client_image_url,
      fitness_goal, height_cm, weight_kg, gender, age } = body;
-    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
-      if (!image_url) {
-        return new Response(JSON.stringify({
-          error: "Missing 'image_url' in request body"
-        }), {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+
+    // ─── Option Whitelist Validation ──────────────────────
+    const invalidMsgs:string[] = [];
+    if (meal_type && !MEAL_TYPES.includes(meal_type)) invalidMsgs.push(`meal_type '${meal_type}'`);
+    if (dietary_goal && !DIETARY_GOALS.includes(dietary_goal)) invalidMsgs.push(`dietary_goal '${dietary_goal}'`);
+    if (meal_time && !MEAL_TIMES.includes(meal_time)) invalidMsgs.push(`meal_time '${meal_time}'`);
+    if (amount_people && !AMOUNT_PEOPLE.includes(amount_people)) invalidMsgs.push(`amount_people '${amount_people}'`);
+    if (restrict_diet && !RESTRICT_DIETS.includes(restrict_diet)) invalidMsgs.push(`restrict_diet '${restrict_diet}'`);
+    if (preferred_region && !PREFERRED_REGIONS.includes(preferred_region)) invalidMsgs.push(`preferred_region '${preferred_region}'`);
+    if (skill_level && !SKILL_LEVELS.includes(skill_level)) invalidMsgs.push(`skill_level '${skill_level}'`);
+    if (kitchen_tools && Array.isArray(kitchen_tools)) {
+      const illegalTools = kitchen_tools.filter((t)=>!KITCHEN_TOOLS.includes(t));
+      if (illegalTools.length) invalidMsgs.push(`kitchen_tools [${illegalTools.join(', ')}]`);
+    }
+
+    // Manual labels validation
+    if (manual_labels && Array.isArray(manual_labels)) {
+      for (const { item_label, additional_info } of manual_labels) {
+        if (item_label && (!LABEL_REGEX.test(item_label))) invalidMsgs.push(`item_label '${item_label}'`);
+        if (additional_info && (!LABEL_REGEX.test(additional_info))) invalidMsgs.push(`additional_info '${additional_info}'`);
       }
     }
+
+    if (invalidMsgs.length) {
+      return respondError(400, `Invalid input for: ${invalidMsgs.join(', ')}`, true);
+    }
+
+    // Handle the new neutral 'general' option
+    const mealTypeForPrompt = (!meal_type || meal_type.toLowerCase() === 'general') ? 'not specified' : meal_type;
+
+    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
+      if (!image_url) {
+        return respondError(400, "Missing 'image_url' in request body", true);
+      }
+    }
+
+    // Validate incoming image URL early
+    if (image_url) {
+      const validatedInputUrl = await validateImageUrl(image_url);
+      if (!validatedInputUrl) {
+        return respondError(400, "Unsupported image URL. Use HTTPS images up to 5 MB.", true);
+      }
+    }
+
     let sourceItems = []; // Raw items before grouping
     if (manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0) {
       console.log("Using manual labels as source.");
@@ -134,12 +255,7 @@ serve(async (req)=>{
       const imageResp = await fetch(image_url);
       if (!imageResp.ok) {
         console.error(`Failed to download image: ${imageResp.status}`);
-        return new Response(JSON.stringify({
-          error: "Failed to download image"
-        }), {
-          status: 400,
-          headers: corsHeaders
-        });
+        return respondError(400, "Unable to download the provided image.", true);
       }
       const imageBlob = await imageResp.blob();
       const arrayBuffer = await imageBlob.arrayBuffer();
@@ -194,21 +310,12 @@ Instructions:
           "Content-Type": "application/json",
           "x-goog-api-key": GEMINI_API_KEY
         },
-        body: JSON.stringify(visionPayload)
+        body: JSON.stringify({ ...visionPayload, generationConfig: { thinkingConfig: { thinkingBudget: 0 } } })
       });
       if (!visionResp.ok) {
         const errText = await visionResp.text();
         console.error("Vision API error:", errText);
-        return new Response(JSON.stringify({
-          error: "Vision API error",
-          detail: errText
-        }), {
-          status: visionResp.status,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        return respondError(502, "Image-analysis service failed. Please try again.", false);
       }
       const visionData = await visionResp.json();
       const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -220,15 +327,7 @@ Instructions:
       console.log("Raw detected items from Vision API:", sourceItems.map((i)=>`${i._source_quantity} ${i.item_label}`).join(", "));
     } else {
       // Should not happen if checks above are correct, but as a fallback
-      return new Response(JSON.stringify({
-        error: "Missing 'image_url' or 'manual_labels' in request body"
-      }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
+      return respondError(400, "Missing 'image_url' or 'manual_labels' in request body", true);
     }
     // **** GROUPING AND QUANTIFICATION STEP (applies to all sources) ****
     const labelMap = new Map();
@@ -437,7 +536,7 @@ Instructions:
       // 1. Prompt Gemini
       const candidatesPrompt = `
     Given these available ingredients: ${ingredientText}
-    - Meal Type: ${meal_type}
+    - Meal Type: ${mealTypeForPrompt}
     - Dietary Goal: ${dietary_goal}
     - People Eating: ${amount_people || 'not specified'}
     - Preferred Cooking Time: ${meal_time || 'not specified'}
@@ -445,15 +544,21 @@ Instructions:
     - Preferred Region: ${preferred_region || 'Any'}
     - Skill Level: ${skill_level || 'Beginner'}
     - Kitchen Tools Available: ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
-    Suggest 3 possible recipe candidates.
-    For each, only return:
-    - title: a plausible dish name in English
-    - description: one sentence description of the dish, suitable for a preview list
 
-    Return ONLY valid JSON array of objects, e.g.:
+    Your task: Suggest exactly 3 RECIPE IDEAS that satisfy **all** the constraints above.
+    • If a *Strict Dietary Restriction* is provided (e.g. "Vegan", "Gluten-free"), every candidate MUST comply with it; do NOT suggest dishes that inherently violate the restriction.
+    • The *Dietary Goal* (fat_loss / muscle_gain / normal) should be reflected in the kind of dish you propose.
+    • Take the available kitchen tools into account – do not propose a recipe that relies on a tool that is not listed (unless "Any" was specified).
+    • The meal type and preferred region should inform the style / cuisine of the dish.
+
+    Output format: **return ONLY valid JSON** – an array with 3 objects. Each object contains:
+      - "title": a concise English dish name
+      - "description": one short sentence that tells the user what the dish is like
+
+    Example (format only):
     [
-      {"title": "...", "description": "..."},
-      ...
+      {"title":"Grilled Tofu Buddha Bowl","description":"A protein-rich vegan bowl with colourful veggies and quinoa."},
+      ... 2 more objects ...
     ]
     `.trim();
       const candidateResp = await fetch(GEMINI_TEXT_ENDPOINT, {
@@ -466,26 +571,16 @@ Instructions:
           contents: [
             {
               parts: [
-                {
-                  text: candidatesPrompt
-                }
+                { text: candidatesPrompt }
               ]
             }
-          ]
+          ],
+          generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
         })
       });
       if (!candidateResp.ok) {
         const errText = await candidateResp.text();
-        return new Response(JSON.stringify({
-          error: "Candidate recipe generation failed",
-          detail: errText
-        }), {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        return respondError(502, "Could not generate recipe candidates. Please retry.", false);
       }
       const candidateData = await candidateResp.json();
       let candidateList = [];
@@ -519,7 +614,7 @@ Instructions:
                 image_url = validated;
               }
               if (!image_url) {
-                image_url = FALLBACK_IMAGE_URL;
+                image_url = await generateDishImage(c.title);
               }
             }
           } catch (e) {
@@ -564,7 +659,7 @@ Instructions:
     const recipePrompt = `Generate a recipe based on these details:
 - **Title (If provided, use as recipe title):** ${selected_title || ''}
 - **Ingredients Available:** ${ingredientText}
-- **Meal Type:** ${meal_type}
+- **Meal Type:** ${mealTypeForPrompt}
 - **Dietary Goal:** ${dietary_goal}
 - **People Eating:** ${amount_people || 'not specified'}
 - **Preferred Cooking Time:** ${meal_time || 'not specified'}
@@ -602,31 +697,28 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       body: JSON.stringify({
         contents: [
           {
-            parts: [
-              {
-                text: recipePrompt
-              }
-            ]
+            parts: [ { text: recipePrompt } ]
           }
-        ]
+        ],
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
       })
     });
     if (!recipeResp.ok) {
       const errText = await recipeResp.text();
       console.error("Recipe API error:", errText);
-      return new Response(JSON.stringify({
-        error: "Recipe generation API error",
-        detail: errText
-      }), {
-        status: recipeResp.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
+      return respondError(502, "Failed to generate recipe. Please try again later.", false);
     }
     const recipeData = await recipeResp.json();
-    const recipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
+    const rawRecipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
+    // Sanitize once server-side
+    const recipeHtml = sanitizeHtml(rawRecipeHtml, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
+      allowedAttributes: {
+        a: ["href", "title", "target"],
+        img: ["src", "alt"]
+      },
+      allowedSchemes: ["https"]
+    });
     // ====== YouTube Video Search Integration ======
     // Helper to extract the dish title from <h1>
     function extractTitle(html) {
@@ -653,8 +745,8 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       }
     }
     // ============ Google Image Search Integration ============
-    let main_image_url = null;
-    if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
+    let main_image_url = client_image_url || null;
+    if (!main_image_url && GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
       try {
         const imgResp = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(dishTitle)}&searchType=image&num=1`);
         if (imgResp.ok) {
@@ -679,7 +771,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     }
     // ================================================
     const categories = [];
-    if (meal_type && meal_type.toLowerCase() !== 'normal') {
+    if (meal_type && meal_type.toLowerCase() !== 'normal' && meal_type.toLowerCase() !== 'general') {
       categories.push(meal_type);
     }
     if (dietary_goal && dietary_goal.toLowerCase() !== 'normal') {
@@ -689,27 +781,30 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       categories.push(restrict_diet);
     }
     const recipeTitle = extractRecipeTitle(recipeHtml);
-    const { data, error } = await supabase.from('history').insert({
-      user_id,
-      image_url,
-      recipe_html: recipeHtml,
-      recipe_title: recipeTitle,
-      main_image_url,
-      video_url,
-      meal_type,
-      dietary_goal,
-      meal_time,
-      amount_people,
-      restrict_diet,
-      detected_items: items,
-      tags: categories,
-      preferred_region,     
-      skill_level,           
-      kitchen_tools 
-    });
+    if (derived_user_id) {
+      await supabase.from('history').insert({
+        user_id: derived_user_id,
+        image_url,
+        recipe_html: recipeHtml,
+        recipe_title: recipeTitle,
+        main_image_url,
+        video_url,
+        meal_type,
+        dietary_goal,
+        meal_time,
+        amount_people,
+        restrict_diet,
+        detected_items: items,
+        tags: categories,
+        preferred_region,
+        skill_level,
+        kitchen_tools
+      });
+    }
     // Ensure we always have some image URL to send back 
     if (!main_image_url) {
-      main_image_url = FALLBACK_IMAGE_URL;
+      main_image_url = await generateDishImage(dishTitle || "dish");
+      if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
     }
     return new Response(JSON.stringify({
       items,
@@ -726,14 +821,6 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     });
   } catch (error) {
     console.error("Unhandled error in Edge Function:", error);
-    return new Response(JSON.stringify({
-      error: error.message || "An internal server error occurred."
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json"
-      }
-    });
+    return respondError(500, "Unexpected server error. Please try again.", false);
   }
 });
