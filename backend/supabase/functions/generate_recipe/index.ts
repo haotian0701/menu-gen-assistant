@@ -103,7 +103,8 @@ serve(async (req)=>{
     const { user_id, image_url, meal_type = "dinner", 
       dietary_goal = "normal", mode, manual_labels, restrict_diet, 
       amount_people, meal_time, selected_title, stage,
-      preferred_region, skill_level, kitchen_tools } = body;
+      preferred_region, skill_level, kitchen_tools,
+     fitness_goal, height_cm, weight_kg, gender, age } = body;
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
         return new Response(JSON.stringify({
@@ -269,6 +270,140 @@ Instructions:
         }
       });
     }
+    // ===== 健身模式分支 =====
+    if (mode === "fitness") {
+      // 组装健身专用 ingredients 字符串
+      const QUANTITY_DISPLAY_CUTOFF = 10;
+      const ingredientText = items.map((i)=>{
+        let txt = "";
+        if (i.quantity > 1 && i.quantity <= QUANTITY_DISPLAY_CUTOFF) {
+          txt += `${i.quantity} `;
+        }
+        txt += i.item_label;
+        if (i.additional_info) txt += ` (${i.additional_info})`;
+        return txt;
+      }).join(", ");
+
+      // 健身专属 prompt
+      const fitnessPrompt = `
+    Given these details:
+    - Ingredients Available: ${ingredientText}
+    - Height: ${height_cm || 'not specified'} cm
+    - Weight: ${weight_kg || 'not specified'} kg
+    - Gender: ${gender || 'not specified'}
+    - Age: ${age || 'not specified'}
+    - Goal: ${
+      fitness_goal === 'fat_loss'
+        ? 'fat loss'
+        : fitness_goal === 'muscle_gain'
+        ? 'muscle gain'
+        : 'healthy eating'
+    }
+    
+    Goal meanings:
+    - "muscle gain": maximize protein and calories for muscle growth.
+    - "fat loss": low calorie, high protein, high volume, filling but low in fat and sugar.
+    - "healthy eating": focus on balanced, nutritious meals, not for weight change, just well-being and health.
+
+    Instructions:
+    1. Estimate the user's target daily calorie intake and macronutrient distribution (protein, fats, carbs) using standard fitness formulas (such as Mifflin-St Jeor).
+    2. Analyze whether the available ingredients can support the user's fitness goal (high protein for muscle gain, low calorie & high volume for fat loss, etc.).
+    3. If possible, generate a recipe using these ingredients that aligns with the goal. If not possible, clearly explain what is missing or suboptimal, and suggest what should be added.
+    4. Output format: valid HTML only, no markdown. Structure:
+      - <h1> Recipe Title
+      - <h2> Ingredients
+      - <ul>
+      - <h2> Instructions
+      - <ol>
+      - <h2> Nutritional Analysis
+      - <p> Estimated calories, protein, carbs, fat per portion.
+      - <h2> Fitness Explanation
+      - <p> Why this recipe matches (or does not match) the fitness goal. Clearly explain what is missing if the result is not ideal.
+    `.trim();
+
+      // Gemini 调用
+      const fitnessResp = await fetch(GEMINI_TEXT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: fitnessPrompt
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      if (!fitnessResp.ok) {
+        const errText = await fitnessResp.text();
+        return new Response(JSON.stringify({
+          error: "Fitness recipe generation failed",
+          detail: errText
+        }), {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
+      }
+
+      const fitnessData = await fitnessResp.json();
+      const fitnessHtml = fitnessData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate fitness recipe.</p>";
+
+      // 可选：为健身模式也查图片
+      function extractTitle(html) {
+        const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+        return m ? m[1].trim() : "";
+      }
+      const dishTitle = extractTitle(fitnessHtml);
+      let main_image_url = null;
+      if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
+        try {
+          const imgResp = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(dishTitle)}&searchType=image&num=1`);
+          if (imgResp.ok) {
+            const imgData = await imgResp.json();
+            const imgUrl = imgData.items?.[0]?.link;
+            let candidateUrl = null;
+            if (imgUrl) {
+              candidateUrl = await validateImageUrl(imgUrl);
+              if (!candidateUrl && imgUrl.startsWith("http://")) {
+                const httpsVersion = imgUrl.replace(/^http:/, "https:");
+                candidateUrl = await validateImageUrl(httpsVersion);
+              }
+            }
+            main_image_url = candidateUrl ?? FALLBACK_IMAGE_URL;
+          }
+        } catch (imgErr) {
+          main_image_url = FALLBACK_IMAGE_URL;
+        }
+      } else {
+        main_image_url = FALLBACK_IMAGE_URL;
+      }
+
+      // 返回健身菜谱
+      return new Response(JSON.stringify({
+        items,
+        recipe: fitnessHtml,
+        main_image_url,
+        video_url: null, 
+        categories: ["fitness", fitness_goal],
+      }), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
+    }
+
     // If no items, return early
     if (items.length === 0) {
       return new Response(JSON.stringify({

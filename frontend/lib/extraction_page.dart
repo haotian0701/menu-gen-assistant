@@ -18,6 +18,7 @@ class ExtractionPage extends StatefulWidget {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? mode;
 
   const ExtractionPage({
     super.key,
@@ -29,6 +30,7 @@ class ExtractionPage extends StatefulWidget {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.mode,
   });
 
   @override
@@ -222,6 +224,20 @@ class _ExtractionPageState extends State<ExtractionPage> {
 // =============================================================================
 
 class ExtractionController extends ChangeNotifier {
+  final fitnessHeightCtrl = TextEditingController();
+  final fitnessWeightCtrl = TextEditingController();
+  final fitnessAgeCtrl = TextEditingController();
+  String fitnessGender = 'Male';
+  String fitnessGoal = 'muscle gain';
+
+  void setFitnessGender(String v) {
+    fitnessGender = v;
+    notifyListeners();
+  }
+  void setFitnessGoal(String v) {
+    fitnessGoal = v;
+    notifyListeners();
+  }
   final String imageUrl;
   final List<Map<String, dynamic>>? initialDetectedItems;
   final bool isRegenerating;
@@ -230,6 +246,7 @@ class ExtractionController extends ChangeNotifier {
   final String? initialMealTime;
   final String? initialAmountPeople;
   final String? initialRestrictDiet;
+  final String? mode;
 
 
   List<Map<String, dynamic>>? _detectedItems;
@@ -279,6 +296,7 @@ class ExtractionController extends ChangeNotifier {
     this.initialMealTime,
     this.initialAmountPeople,
     this.initialRestrictDiet,
+    this.mode,
   }) {
     _initializeState();
   }
@@ -320,8 +338,10 @@ class ExtractionController extends ChangeNotifier {
       _isLoading = false;
     } else {
       _fetchDetectedItems();
+
     }
   }
+
 
   // Getters
   List<Map<String, dynamic>>? get detectedItems => _detectedItems;
@@ -509,6 +529,9 @@ class ExtractionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    fitnessHeightCtrl.dispose();
+    fitnessWeightCtrl.dispose();
+    fitnessAgeCtrl.dispose();
     _disposed = true;
     super.dispose();
   }
@@ -1318,6 +1341,44 @@ class OptionsGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 800;
+        final mode = controller.mode;
+        // 健身模式
+        if (mode == 'fitness') {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 身高
+              _buildTextField('Height (cm)', controller.fitnessHeightCtrl, isSmallScreen),
+              const SizedBox(height: 16),
+              // 体重
+              _buildTextField('Weight (kg)', controller.fitnessWeightCtrl, isSmallScreen),
+              const SizedBox(height: 16),
+              // 年龄
+              _buildTextField('Age', controller.fitnessAgeCtrl, isSmallScreen),
+              const SizedBox(height: 16),
+              // 性别
+              _buildDropdownField(
+                'Gender',
+                controller.fitnessGender,
+                ['Male', 'Female'],
+                (v) => controller.setFitnessGender(v),
+                isSmallScreen,
+              ),
+              const SizedBox(height: 16),
+              // 健身目标
+              _buildDropdownField(
+                'Fitness Goal',
+                controller.fitnessGoal,
+                ['muscle gain', 'fat_loss', 'healthy eating'],
+                (v) => controller.setFitnessGoal(v),
+                isSmallScreen,
+              ),
+              const SizedBox(height: 16),
+              // 展开更多按钮 & 高级选项
+              _AdvancedOptions(controller: controller, isSmallScreen: isSmallScreen),
+            ],
+          );
+        }
 
         return Column(
           children: [
@@ -1384,6 +1445,60 @@ class OptionsGrid extends StatelessWidget {
     );
   }
 
+  Widget _buildTextField(String label, TextEditingController ctrl, bool isSmallScreen) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
+    );
+  }
+
+  Widget _buildDropdownField(String label, String value, List<String> options, ValueChanged<String> onChanged, bool isSmallScreen) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+          style: TextStyle(
+            fontSize: isSmallScreen ? 13 : 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: value,
+              items: options.map((e) => DropdownMenuItem(
+                value: e,
+                child: Text(e,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 13 : 14,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+              )).toList(),
+              onChanged: (v) => onChanged(v!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
   Widget _buildOptionField(
     String label,
     String currentValue,
@@ -1433,7 +1548,8 @@ class OptionsGrid extends StatelessWidget {
       ],
     );
   }
-}
+
+
 class _AdvancedOptions extends StatefulWidget {
   final ExtractionController controller;
   final bool isSmallScreen;
@@ -1675,6 +1791,32 @@ class GenerateButton extends StatelessWidget {
   }
 
   void _onGeneratePressed(BuildContext context) {
+    // fitness 模式
+    if (controller.mode == 'fitness') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GeneratingPage(
+            imageUrl: controller.imageUrl,
+            mealType: controller.mode == 'fitness' ? null : controller.selectedMeal,
+            dietaryGoal: controller.mode == 'fitness' ? null : controller.selectedGoal,
+            mode: 'fitness',
+            fitnessData: {
+              'height': controller.fitnessHeightCtrl.text,
+              'weight': controller.fitnessWeightCtrl.text,
+              'age': controller.fitnessAgeCtrl.text,
+              'gender': controller.fitnessGender,
+              'goal': controller.fitnessGoal,
+
+            },
+            preferredRegion: controller.selectedRegion,
+            skillLevel: controller.selectedSkill,
+            kitchenTools: controller.selectedKitchenTools.toList(),
+            manualLabels: controller.detectedItems,
+          ),
+        ),
+      );
+      return;
+    }
     if (!controller.hasDetectedItems) {
       return;
     }

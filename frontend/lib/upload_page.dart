@@ -82,6 +82,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                   controller: _uploadController,
                                   onGenerateRecipe: _handleGenerateRecipe,
                                   onGenerateInstant: _handleInstantGenerate,
+                                  onGenerateFitness: _handleGenerateFitness,
                                 ),
                               ),
                             ],
@@ -105,6 +106,7 @@ class _UploadImagePageState extends State<UploadImagePage> {
                                   controller: _uploadController,
                                   onGenerateRecipe: _handleGenerateRecipe,
                                   onGenerateInstant: _handleInstantGenerate,
+                                  onGenerateFitness: _handleGenerateFitness,
                                 ),
                               ),
                             ],
@@ -155,7 +157,22 @@ class _UploadImagePageState extends State<UploadImagePage> {
       );
     }
   }
+    void _handleGenerateFitness() {
+    if (_uploadController.uploadedUrl != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ExtractionPage(
+            imageUrl: _uploadController.uploadedUrl!,
+            mode: 'fitness', 
+          ),
+        ),
+      );
+    }
+  }
 }
+
+
+
 
 // =============================================================================
 // UPLOAD CONTROLLER
@@ -797,12 +814,14 @@ class StatusPanel extends StatelessWidget {
   final UploadController controller;
   final VoidCallback onGenerateRecipe;
   final VoidCallback onGenerateInstant;
+  final VoidCallback onGenerateFitness;
 
   const StatusPanel({
     super.key,
     required this.controller,
     required this.onGenerateRecipe,
     required this.onGenerateInstant,
+    required this.onGenerateFitness,
   });
 
   @override
@@ -819,6 +838,8 @@ class StatusPanel extends StatelessWidget {
                 GenerateRecipeButton(onGenerateRecipe: onGenerateRecipe),
                 const SizedBox(height: 12),
                 GenerateInstantlyButton(onGenerateInstant: onGenerateInstant),
+                const SizedBox(height: 12),
+                GenerateFitnessButton(onGenerateFitness: onGenerateFitness),
               ],
             ],
           ),
@@ -1183,7 +1204,6 @@ class GenerateInstantlyButton extends StatelessWidget {
       },
     );
   }
-
   Widget _infoIcon(BuildContext context, bool isSmallScreen) {
     return Tooltip(
       richMessage: TextSpan(
@@ -1205,6 +1225,118 @@ class GenerateInstantlyButton extends StatelessWidget {
   }
 }
 
+class GenerateFitnessButton extends StatelessWidget {
+  final VoidCallback onGenerateFitness;
+
+  const GenerateFitnessButton({super.key, required this.onGenerateFitness});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 500;
+        final buttonHeight = isSmallScreen ? 36.0 : 44.0;
+        if (!isSmallScreen) {
+          return Container(
+            width: double.infinity,
+            height: buttonHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.18),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.fitness_center, size: 18),
+              label: const Text(
+                'Fitness Mode',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+              onPressed: onGenerateFitness,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+            ),
+          );
+        }
+
+        // small screen
+        return SizedBox(
+          height: buttonHeight,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.fitness_center, size: 14),
+                  label: const Text('Fitness Mode',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  onPressed: onGenerateFitness,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(8),
+                        bottomLeft: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Fitness Mode'),
+                        content: const Text(_fitnessModeBody),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade600,
+                    elevation: 0,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                  child: const Icon(Icons.info_outline, size: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 const String _advancedModeBody = 'Ready to get specific? In Advanced Mode, you\'re in full control.\n\nDouble-check your detected food items, then add important details like the meal type you\'re aiming for and any food restrictions to keep things delicious and safe.\n\nWe\'ll then present you with 3 tempting recipe suggestions for your discerning palate.\n\nIt\'s like building your perfect meal, brick by delicious brick!';
 
 const String _quickModeBody = 'No time to spare? No problem! Quick Mode is our express lane to deliciousness.\n\nJust hit the button and we\'ll instantly conjure up a recipe for you.\n\nIt\'s the fastest way to go from "what should I eat?" to "yum!"';
+
+const String _fitnessModeBody = 'In Fitness Mode, you can generate recipes tailored for fitness, and fill in your personal data such as height, weight, gender, age, and fitness goals. Great for meal planning, calorie control, and building a healthier diet!'; 

@@ -41,6 +41,8 @@ class RecipePage extends StatefulWidget {
   final String amountPeople;
   final String restrictDiet;
   final String? mainImageUrl;
+  final bool? isFitnessMode;
+  final Map<String, double>? nutritionInfo;
 
   const RecipePage({
     super.key,
@@ -54,6 +56,8 @@ class RecipePage extends StatefulWidget {
     required this.amountPeople,
     required this.restrictDiet,
     this.mainImageUrl,
+    this.isFitnessMode,
+    this.nutritionInfo
   });
 
   @override

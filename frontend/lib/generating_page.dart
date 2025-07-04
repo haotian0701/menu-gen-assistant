@@ -9,23 +9,24 @@ import 'recipe_page.dart';
 
 class GeneratingPage extends StatefulWidget {
   final String imageUrl;
-  final String mealType;
-  final String dietaryGoal;
+  final String? mealType;
+  final String? dietaryGoal;
   final String? mealTime;
   final String? amountPeople;
   final String? restrictDiet;
-  final String mode;
+  final String? mode;
   final String? preferredRegion;
   final String? skillLevel;
   final List<String>? kitchenTools;
-
   final List<Map<String, dynamic>>? manualLabels;
+  final Map<String, dynamic>? fitnessData;
+  final Map<String, dynamic>? nutritionInfo;
 
   const GeneratingPage({
     super.key,
     required this.imageUrl,
-    required this.mealType,
-    required this.dietaryGoal,
+    this.mealType,
+    this.dietaryGoal,
     this.mealTime,
     this.amountPeople,
     this.manualLabels,
@@ -33,7 +34,9 @@ class GeneratingPage extends StatefulWidget {
     this.preferredRegion,
     this.skillLevel,
     this.kitchenTools,
-    required this.mode,
+    this.mode,
+    this.fitnessData, 
+    this.nutritionInfo,
   });
 
   @override
@@ -163,10 +166,22 @@ class _GeneratingPageState extends State<GeneratingPage> {
 
   final body = <String, dynamic>{
     'image_url': widget.imageUrl,
-    'meal_type': widget.mealType,
-    'dietary_goal': widget.dietaryGoal,
-    'selected_title': selectedTitle,
   };
+
+  if (widget.mode == 'fitness') {
+    if (widget.fitnessData != null) body['fitness_data'] = widget.fitnessData;
+    body['mode'] = 'fitness';
+  } else {
+    body['meal_type'] = widget.mealType ?? '';
+    body['dietary_goal'] = widget.dietaryGoal ?? '';
+    body['selected_title'] = selectedTitle;
+    if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
+    if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
+    if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
+    if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
+      body['manual_labels'] = widget.manualLabels;
+    }
+  }
   if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
   if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
   if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
@@ -216,13 +231,22 @@ class _GeneratingPageState extends State<GeneratingPage> {
           recipe: recipe,
           detectedItems: items,
           videoUrl: videoUrl,
-          mealType: widget.mealType,
-          dietaryGoal: widget.dietaryGoal,
+          mealType: widget.mealType ?? '',
+          dietaryGoal: widget.dietaryGoal ?? '',
           mealTime: widget.mealTime ?? '',
           amountPeople: widget.amountPeople ?? '',
           restrictDiet: widget.restrictDiet ?? '',
           mainImageUrl: mainImageUrl,
-        ),
+          isFitnessMode: widget.mode == 'fitness',
+          nutritionInfo: widget.mode == 'fitness'
+              ? (widget.nutritionInfo ?? {}).map(
+                  (key, value) => MapEntry(
+                    key.toString(),
+                    value is double ? value : double.tryParse(value.toString()) ?? 0.0,
+                  ),
+                )
+              : null,
+      ),
       ),
     );
   } catch (e) {
