@@ -2,43 +2,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-// HTML sanitizer for XSS protection
 import sanitizeHtml from "npm:sanitize-html";
-
 // Simple in-memory throttle: IP ➜ last request timestamp
-const lastRequestMap: Map<string, number> = new Map();
-
+const lastRequestMap = new Map();
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // === Added: helper + fallback for main image URL validation ===
 const FALLBACK_IMAGE_URL = "https://via.placeholder.com/640x480.png?text=Recipe+Image";
-
 // Maximum image size we allow to download (bytes)
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
-
-function isPrivateIp(hostname: string) {
+function isPrivateIp(hostname) {
   // Reject obvious private IPv4 ranges. This is a heuristic; tighten if needed.
   const m = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
   if (!m) return false;
   const parts = hostname.split(".").map(Number);
   const [a, b] = parts;
-  return (
-    a === 10 ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
-  );
+  return a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168;
 }
-
-async function validateImageUrl(url: string): Promise<string | null> {
+async function validateImageUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol !== "https:") return null; // HTTPS only
-    if (isPrivateIp(u.hostname)) return null;  // prevent SSRF
-
+    if (isPrivateIp(u.hostname)) return null; // prevent SSRF
     // HEAD request to verify type & size
     try {
-      const headResp = await fetch(url, { method: "HEAD" });
+      const headResp = await fetch(url, {
+        method: "HEAD"
+      });
       if (!headResp.ok) return null;
       const ct = headResp.headers.get("content-type") || "";
       if (!ct.startsWith("image/")) return null;
@@ -48,11 +39,10 @@ async function validateImageUrl(url: string): Promise<string | null> {
       return null;
     }
     return url;
-  } catch {
+  } catch  {
     return null;
   }
 }
-
 function extractRecipeTitle(html) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
@@ -82,14 +72,29 @@ function extractLabelsFromJson(jsonString) {
 function cleanGeminiJsonResponse(rawText) {
   return rawText.replace(/```json\n?/, '').replace(/```$/, '').trim();
 }
+// Helper to extract nutrition info
+function extractNutritionInfo(html) {
+  const section = html.match(/<h2[^>]*>Nutritional Analysis<\/h2>([\s\S]*?)(<h2|$)/i);
+  if (!section) return null;
+  const text = section[1];
+  function parseVal(re) {
+    const m = text.match(re);
+    return m ? parseFloat(m[1]) : null;
+  }
+  return {
+    calories: parseVal(/Calories:\s*([\d.]+)\s*k?cal/i),
+    protein: parseVal(/Protein:\s*([\d.]+)\s*g/i),
+    carbs: parseVal(/Carbohydrates?:\s*([\d.]+)\s*g/i),
+    fat: parseVal(/Fat:\s*([\d.]+)\s*g/i)
+  };
+}
 // Environment variables
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
 const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
-const GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17";
-const GEMINI_VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const GEMINI_TEXT_ENDPOINT = GEMINI_VISION_ENDPOINT;
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
@@ -97,37 +102,83 @@ if (!GEMINI_API_KEY) {
 if (!YOUTUBE_API_KEY) {
   console.warn("Missing YOUTUBE_API_KEY — video links will be omitted");
 }
-
 // ──────────────────────────────────────────────────────────
 //  Whitelists for user-selectable options (same lists as front-end)
 // ──────────────────────────────────────────────────────────
-const MEAL_TYPES = ['general', 'breakfast', 'lunch', 'dinner'];
-const DIETARY_GOALS = ['normal', 'fat_loss', 'muscle_gain'];
-const MEAL_TIMES = ['fast', 'medium', 'long'];
-const AMOUNT_PEOPLE = ['1', '2', '4', '6+'];
-const RESTRICT_DIETS = ['None', 'Vegan', 'Vegetarian', 'Gluten-free', 'Lactose-free'];
-const PREFERRED_REGIONS = ['Any', 'Asia', 'Europe', 'Mediterranean', 'America', 'Middle Eastern', 'African', 'Latin American'];
-const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-const KITCHEN_TOOLS = [
-  'Stove Top', 'Oven', 'Microwave', 'Air Fryer', 'Sous Vide Machine',
-  'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
+const MEAL_TYPES = [
+  'general',
+  'breakfast',
+  'lunch',
+  'dinner'
 ];
-
+const DIETARY_GOALS = [
+  'normal',
+  'fat_loss',
+  'muscle_gain'
+];
+const MEAL_TIMES = [
+  'fast',
+  'medium',
+  'long'
+];
+const AMOUNT_PEOPLE = [
+  '1',
+  '2',
+  '4',
+  '6+'
+];
+const RESTRICT_DIETS = [
+  'None',
+  'Vegan',
+  'Vegetarian',
+  'Gluten-free',
+  'Lactose-free'
+];
+const PREFERRED_REGIONS = [
+  'Any',
+  'Asia',
+  'Europe',
+  'Mediterranean',
+  'America',
+  'Middle Eastern',
+  'African',
+  'Latin American'
+];
+const SKILL_LEVELS = [
+  'Beginner',
+  'Intermediate',
+  'Advanced'
+];
+const KITCHEN_TOOLS = [
+  'Stove Top',
+  'Oven',
+  'Microwave',
+  'Air Fryer',
+  'Sous Vide Machine',
+  'Blender',
+  'Food Processor',
+  'BBQ',
+  'Slow Cooker',
+  'Pressure Cooker'
+];
 // Manual-label text validation
 const LABEL_REGEX = /^[a-zA-Z0-9 ,.'()\-]{1,30}$/;
-
 // Helper to build consistent error responses
-function respondError(status: number, message: string, userError = false) {
-  return new Response(JSON.stringify({ error: message, user_error: userError }), {
+function respondError(status, message, userError = false) {
+  return new Response(JSON.stringify({
+    error: message,
+    user_error: userError
+  }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json"
+    }
   });
 }
-
 // Gemini image generation endpoint
 const GEMINI_IMAGE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent";
-
-async function generateDishImage(title: string): Promise<string | null> {
+async function generateDishImage(title) {
   if (!GEMINI_API_KEY) return null;
   const prompt = `Food photography of ${title}, plated on a neutral background, studio lighting`;
   try {
@@ -138,8 +189,20 @@ async function generateDishImage(title: string): Promise<string | null> {
         "x-goog-api-key": GEMINI_API_KEY
       },
       body: JSON.stringify({
-        contents: [ { parts: [ { text: prompt } ] } ],
-        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
+        }
       })
     });
     if (!resp.ok) return null;
@@ -147,11 +210,10 @@ async function generateDishImage(title: string): Promise<string | null> {
     const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (b64) return `data:image/png;base64,${b64}`;
     return null;
-  } catch {
+  } catch  {
     return null;
   }
 }
-
 serve(async (req)=>{
   // ──────────────────────────────────────────────────────────
   // Throttle: 1 request per IP per 5 s to protect Gemini quota
@@ -160,44 +222,43 @@ serve(async (req)=>{
   const now = Date.now();
   const last = lastRequestMap.get(ip) ?? 0;
   if (now - last < 5000) {
-    return new Response(JSON.stringify({ error: "Too many requests – wait a few seconds before trying again." }), {
+    return new Response(JSON.stringify({
+      error: "Too many requests – wait a few seconds before trying again."
+    }), {
       status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
     });
   }
   lastRequestMap.set(ip, now);
-
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
-
   // ──────────────────────────────────────────────────────────
   // Authentication – optional: derive user if JWT present
   // ──────────────────────────────────────────────────────────
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-  let derived_user_id: string | null = null;
+  let derived_user_id = null;
   if (authHeader?.startsWith("Bearer ")) {
     const jwt = authHeader.substring(7);
-    const { data: { user: authUser } = { user: null } } = await supabase.auth.getUser(jwt);
+    const { data: { user: authUser } = {
+      user: null
+    } } = await supabase.auth.getUser(jwt);
     if (authUser) {
       derived_user_id = authUser.id;
     }
   }
-
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { image_url, meal_type = "", 
-      dietary_goal = "normal", mode, manual_labels, restrict_diet, 
-      amount_people, meal_time, selected_title, stage,
-      preferred_region, skill_level, kitchen_tools, client_image_url,
-     fitness_goal, height_cm, weight_kg, gender, age } = body;
-
+    const { user_id, image_url, meal_type = "", dietary_goal = "normal", mode, manual_labels, restrict_diet, amount_people, meal_time, selected_title, stage, preferred_region, skill_level, kitchen_tools, client_image_url, height_cm, weight_kg, gender, age, fitness_goal } = body;
     // ─── Option Whitelist Validation ──────────────────────
-    const invalidMsgs:string[] = [];
+    const invalidMsgs = [];
     if (meal_type && !MEAL_TYPES.includes(meal_type)) invalidMsgs.push(`meal_type '${meal_type}'`);
     if (dietary_goal && !DIETARY_GOALS.includes(dietary_goal)) invalidMsgs.push(`dietary_goal '${dietary_goal}'`);
     if (meal_time && !MEAL_TIMES.includes(meal_time)) invalidMsgs.push(`meal_time '${meal_time}'`);
@@ -209,28 +270,23 @@ serve(async (req)=>{
       const illegalTools = kitchen_tools.filter((t)=>!KITCHEN_TOOLS.includes(t));
       if (illegalTools.length) invalidMsgs.push(`kitchen_tools [${illegalTools.join(', ')}]`);
     }
-
     // Manual labels validation
     if (manual_labels && Array.isArray(manual_labels)) {
-      for (const { item_label, additional_info } of manual_labels) {
-        if (item_label && (!LABEL_REGEX.test(item_label))) invalidMsgs.push(`item_label '${item_label}'`);
-        if (additional_info && (!LABEL_REGEX.test(additional_info))) invalidMsgs.push(`additional_info '${additional_info}'`);
+      for (const { item_label, additional_info } of manual_labels){
+        if (item_label && !LABEL_REGEX.test(item_label)) invalidMsgs.push(`item_label '${item_label}'`);
+        if (additional_info && !LABEL_REGEX.test(additional_info)) invalidMsgs.push(`additional_info '${additional_info}'`);
       }
     }
-
     if (invalidMsgs.length) {
       return respondError(400, `Invalid input for: ${invalidMsgs.join(', ')}`, true);
     }
-
     // Handle the new neutral 'general' option
-    const mealTypeForPrompt = (!meal_type || meal_type.toLowerCase() === 'general') ? 'not specified' : meal_type;
-
+    const mealTypeForPrompt = !meal_type || meal_type.toLowerCase() === 'general' ? 'not specified' : meal_type;
     if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
       if (!image_url) {
         return respondError(400, "Missing 'image_url' in request body", true);
       }
     }
-
     // Validate incoming image URL early
     if (image_url) {
       const validatedInputUrl = await validateImageUrl(image_url);
@@ -238,7 +294,6 @@ serve(async (req)=>{
         return respondError(400, "Unsupported image URL. Use HTTPS images up to 5 MB.", true);
       }
     }
-
     let sourceItems = []; // Raw items before grouping
     if (manual_labels && Array.isArray(manual_labels) && manual_labels.length > 0) {
       console.log("Using manual labels as source.");
@@ -310,7 +365,7 @@ Instructions:
           "Content-Type": "application/json",
           "x-goog-api-key": GEMINI_API_KEY
         },
-        body: JSON.stringify({ ...visionPayload, generationConfig: { thinkingConfig: { thinkingBudget: 0 } } })
+        body: JSON.stringify(visionPayload)
       });
       if (!visionResp.ok) {
         const errText = await visionResp.text();
@@ -369,9 +424,8 @@ Instructions:
         }
       });
     }
-    // ===== 健身模式分支 =====
+    // ===== Fitness mode branch =====
     if (mode === "fitness") {
-      // 组装健身专用 ingredients 字符串
       const QUANTITY_DISPLAY_CUTOFF = 10;
       const ingredientText = items.map((i)=>{
         let txt = "";
@@ -382,8 +436,7 @@ Instructions:
         if (i.additional_info) txt += ` (${i.additional_info})`;
         return txt;
       }).join(", ");
-
-      // 健身专属 prompt
+      // Fitness prompt
       const fitnessPrompt = `
     Given these details:
     - Ingredients Available: ${ingredientText}
@@ -391,13 +444,7 @@ Instructions:
     - Weight: ${weight_kg || 'not specified'} kg
     - Gender: ${gender || 'not specified'}
     - Age: ${age || 'not specified'}
-    - Goal: ${
-      fitness_goal === 'fat_loss'
-        ? 'fat loss'
-        : fitness_goal === 'muscle_gain'
-        ? 'muscle gain'
-        : 'healthy eating'
-    }
+    - Goal: ${fitness_goal === 'fat_loss' ? 'fat loss' : fitness_goal === 'muscle_gain' ? 'muscle gain' : 'healthy eating'}
     
     Goal meanings:
     - "muscle gain": maximize protein and calories for muscle growth.
@@ -419,8 +466,7 @@ Instructions:
       - <h2> Fitness Explanation
       - <p> Why this recipe matches (or does not match) the fitness goal. Clearly explain what is missing if the result is not ideal.
     `.trim();
-
-      // Gemini 调用
+      // Gemini 
       const fitnessResp = await fetch(GEMINI_TEXT_ENDPOINT, {
         method: "POST",
         headers: {
@@ -439,7 +485,6 @@ Instructions:
           ]
         })
       });
-
       if (!fitnessResp.ok) {
         const errText = await fitnessResp.text();
         return new Response(JSON.stringify({
@@ -453,11 +498,9 @@ Instructions:
           }
         });
       }
-
       const fitnessData = await fitnessResp.json();
       const fitnessHtml = fitnessData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate fitness recipe.</p>";
-
-      // 可选：为健身模式也查图片
+      const nutrition_info = extractNutritionInfo(fitnessHtml);
       function extractTitle(html) {
         const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
         return m ? m[1].trim() : "";
@@ -486,14 +529,16 @@ Instructions:
       } else {
         main_image_url = FALLBACK_IMAGE_URL;
       }
-
-      // 返回健身菜谱
       return new Response(JSON.stringify({
         items,
         recipe: fitnessHtml,
         main_image_url,
-        video_url: null, 
-        categories: ["fitness", fitness_goal],
+        video_url: null,
+        categories: [
+          "fitness",
+          fitness_goal
+        ],
+        nutrition_info
       }), {
         status: 200,
         headers: {
@@ -502,7 +547,6 @@ Instructions:
         }
       });
     }
-
     // If no items, return early
     if (items.length === 0) {
       return new Response(JSON.stringify({
@@ -518,17 +562,13 @@ Instructions:
     }
     // Build ingredient text
     const QUANTITY_DISPLAY_CUTOFF = 10;
-    const ingredientText = items.map((i) => {
+    const ingredientText = items.map((i)=>{
       let txt = "";
-
       if (i.quantity > 1 && i.quantity <= QUANTITY_DISPLAY_CUTOFF) {
         txt += `${i.quantity} `;
       }
-
       txt += i.item_label;
-
       if (i.additional_info) txt += ` (${i.additional_info})`;
-
       return txt;
     }).join(", ");
     //STAGE: CANDIDATES
@@ -543,8 +583,7 @@ Instructions:
     ${restrict_diet && restrict_diet.trim() !== "" ? `- Strict Dietary Restriction: ${restrict_diet}` : ''}
     - Preferred Region: ${preferred_region || 'Any'}
     - Skill Level: ${skill_level || 'Beginner'}
-    - Kitchen Tools Available: ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
-
+    - Kitchen Tools Available: ${Array.isArray(kitchen_tools) && kitchen_tools.length > 0 ? kitchen_tools.join(", ") : "Any"}
     Your task: Suggest exactly 3 RECIPE IDEAS that satisfy **all** the constraints above.
     • If a *Strict Dietary Restriction* is provided (e.g. "Vegan", "Gluten-free"), every candidate MUST comply with it; do NOT suggest dishes that inherently violate the restriction.
     • The *Dietary Goal* (fat_loss / muscle_gain / normal) should be reflected in the kind of dish you propose.
@@ -571,11 +610,12 @@ Instructions:
           contents: [
             {
               parts: [
-                { text: candidatesPrompt }
+                {
+                  text: candidatesPrompt
+                }
               ]
             }
-          ],
-          generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+          ]
         })
       });
       if (!candidateResp.ok) {
@@ -666,7 +706,7 @@ Instructions:
 ${restrict_diet && restrict_diet.trim() !== "" ? `- **Strict Dietary Restriction to follow:** ${restrict_diet}` : ''}
 - **Preferred Region/Cuisine:** ${preferred_region || 'Any'}
 - **Skill Level:** ${skill_level || 'Beginner'}
-- **Kitchen Tools Available:** ${(Array.isArray(kitchen_tools) && kitchen_tools.length > 0) ? kitchen_tools.join(", ") : "Any"}
+- **Kitchen Tools Available:** ${Array.isArray(kitchen_tools) && kitchen_tools.length > 0 ? kitchen_tools.join(", ") : "Any"}
 **Output Format Instructions:**
 Format the entire response as a single block of valid HTML. Do NOT include \`\`\`html fences or any text outside the HTML structure.
 The HTML should include:
@@ -697,10 +737,13 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       body: JSON.stringify({
         contents: [
           {
-            parts: [ { text: recipePrompt } ]
+            parts: [
+              {
+                text: recipePrompt
+              }
+            ]
           }
-        ],
-        generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+        ]
       })
     });
     if (!recipeResp.ok) {
@@ -710,22 +753,34 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     }
     const recipeData = await recipeResp.json();
     const rawRecipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
-    // Sanitize once server-side
     const recipeHtml = sanitizeHtml(rawRecipeHtml, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+        "h1",
+        "h2",
+        "img"
+      ]),
       allowedAttributes: {
-        a: ["href", "title", "target"],
-        img: ["src", "alt"]
+        a: [
+          "href",
+          "title",
+          "target"
+        ],
+        img: [
+          "src",
+          "alt"
+        ]
       },
-      allowedSchemes: ["https"]
+      allowedSchemes: [
+        "https"
+      ]
     });
     // ====== YouTube Video Search Integration ======
     // Helper to extract the dish title from <h1>
-    function extractTitle(html) {
+    function extractTitle1(html) {
       const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
       return m ? m[1].trim() : "";
     }
-    const dishTitle = extractTitle(recipeHtml);
+    const dishTitle = extractTitle1(recipeHtml);
     let video_url = null;
     if (YOUTUBE_API_KEY && dishTitle) {
       try {
@@ -746,7 +801,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     }
     // ============ Google Image Search Integration ============
     let main_image_url = client_image_url || null;
-    if (!main_image_url && GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
+    if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_CX && dishTitle) {
       try {
         const imgResp = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(dishTitle)}&searchType=image&num=1`);
         if (imgResp.ok) {
@@ -821,6 +876,14 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     });
   } catch (error) {
     console.error("Unhandled error in Edge Function:", error);
-    return respondError(500, "Unexpected server error. Please try again.", false);
+    return new Response(JSON.stringify({
+      error: error.message || "An internal server error occurred."
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 });
