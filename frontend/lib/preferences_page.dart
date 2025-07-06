@@ -28,6 +28,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
     'Slow Cooker',
     'Pressure Cooker'
   ];
+  final heightCtrl = TextEditingController();
+  final weightCtrl = TextEditingController();
+  final ageCtrl = TextEditingController();
+  final _genders = ['Male', 'Female'];
+  final _fitnessGoals = ['muscle_gain', 'fat_loss', 'healthy_eating'];
 
   // Current selections
   late String _selectedMeal;
@@ -38,6 +43,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
   late String _selectedRegion;
   late String _selectedSkill;
   late Set<String> _selectedTools;
+  late String _selectedGender;
+  late String _selectedFitnessGoal;
 
   bool _loading = true;
 
@@ -60,6 +67,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
     _selectedRegion = 'Any';
     _selectedSkill = 'Beginner';
     _selectedTools = {'Stove Top', 'Oven'};
+    heightCtrl.text         = '';
+    weightCtrl.text         = '';
+    ageCtrl.text            = '';
+    _selectedGender         = _genders.first; 
+    _selectedFitnessGoal    = _fitnessGoals.first;
 
     if (user != null) {
       final data = await client
@@ -78,6 +90,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
           _selectedSkill = data['skill_level'] ?? _selectedSkill;
           final tools = (data['kitchen_tools'] as List?)?.cast<String>() ?? [];
           _selectedTools = tools.toSet();
+          heightCtrl.text      = (data['height_cm']    ?? '').toString();
+          weightCtrl.text      = (data['weight_kg']    ?? '').toString();
+          ageCtrl.text         = (data['age']          ?? '').toString();
+          _selectedGender      = data['gender']        ?? _selectedGender;
+          _selectedFitnessGoal = data['fitness_goal']  ?? _selectedFitnessGoal;
         });
       }
     }
@@ -100,6 +117,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
       'preferred_region': _selectedRegion,
       'skill_level': _selectedSkill,
       'kitchen_tools': _selectedTools.toList(),
+      'height_cm'      : int.tryParse(heightCtrl.text.trim()),
+      'weight_kg'      : int.tryParse(weightCtrl.text.trim()),
+      'age'            : int.tryParse(ageCtrl.text.trim()),
+      'gender'         : _selectedGender,
+      'fitness_goal'   : _selectedFitnessGoal,
     };
 
     await client.from('user_preferences').upsert(payload);
@@ -109,7 +131,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
       );
     }
   }
-
+  
+  @override
+  void dispose() {
+    heightCtrl.dispose();
+    weightCtrl.dispose();
+    ageCtrl.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +158,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'These preferences are automatically used for Quick Mode and pre-fill the options in Advanced Mode.',
+                        'These preferences are automatically used for Quick Mode and pre-fill the options in Advanced Mode and Fitness Mode',
                         style: TextStyle(fontSize: 14),
                       ),
                     ),
@@ -148,6 +177,35 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     const SizedBox(height: 16),
                     _buildDropdown('Dietary Restrictions', _selectedDiet, _restrictDietOptions,
                         (v) => setState(() => _selectedDiet = v)),
+
+                    const SizedBox(height: 24),
+                    const Text('Fitness Profile',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: heightCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Height (cm)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: weightCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Weight (kg)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ageCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Age'),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDropdown('Gender', _selectedGender, _genders,
+                        (v) => setState(() => _selectedGender = v)),
+                    const SizedBox(height: 12),
+                    _buildDropdown('Fitness Goal', _selectedFitnessGoal, _fitnessGoals,
+                        (v) => setState(() => _selectedFitnessGoal = v)),
+                    const Divider(height: 32),
                     const SizedBox(height: 24),
                     _buildDropdown('Preferred Region', _selectedRegion, _preferredRegions,
                         (v) => setState(() => _selectedRegion = v)),
