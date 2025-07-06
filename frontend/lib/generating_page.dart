@@ -1,11 +1,11 @@
 // lib/generating_page.dart
 
 import 'dart:convert';
+import 'dart:async';  
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'error_utils.dart';
-
 import 'recipe_page.dart';
 
 int? parseInt(String? s) => int.tryParse(s ?? '');
@@ -52,7 +52,30 @@ class _GeneratingPageState extends State<GeneratingPage> {
   String? _error;
   bool _generatingFinal = false;  
   bool _showCandidates = false;
-  bool _loadingDefault = false;                
+  bool _loadingDefault = false;
+  double _progress = 0.0;
+  Timer? _progressTimer;
+  void _startFakeProgress() {
+  _progressTimer?.cancel();
+  setState(() => _progress = 0.0);
+  _progressTimer = Timer.periodic(const Duration(milliseconds:100), (_) {
+    setState(() {
+      _progress = (_progress + 0.02).clamp(0.0, 0.9);
+    });
+  });
+}
+
+void _stopFakeProgress() {
+  _progressTimer?.cancel();
+  setState(() => _progress = 1.0);
+}
+
+@override
+void dispose() {
+  _progressTimer?.cancel();
+  super.dispose();
+}
+                
   @override
   void initState() {
     super.initState();
@@ -66,6 +89,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
   }
 
   Future<void> _generateCandidates() async {
+    _startFakeProgress();
     setState(() {               
      _loadingCandidates = true; 
      _showCandidates = true; 
@@ -140,17 +164,23 @@ class _GeneratingPageState extends State<GeneratingPage> {
     } catch (e) {
       // errors already handled via handleJsonPost snackbar; no further action
     } finally {
+      _stopFakeProgress();
       if (mounted) setState(() => _loadingCandidates = false);
     }
   }
 
 
   Future<void> _generateFinalRecipe(String selectedTitle, [String? selectedImage]) async {
+  _startFakeProgress();
   setState(() { 
     _generatingFinal = true;
     _loadingCandidates = false;
+    _progress = 0.05;
      });
 
+  setState(() {
+    _progress = 0.2;
+  });
   final supabaseInstance = Supabase.instance;
   final client = supabaseInstance.client;
   final session = client.auth.currentSession;
@@ -160,7 +190,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
   final uri = Uri.parse(
     'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
   );
-
+  setState(() {
+    _progress = 0.35;
+  });
   final body = <String, dynamic>{
     'image_url': widget.imageUrl,
   };
@@ -218,6 +250,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
       future: http.post(uri, headers: headers, body: jsonEncode(body)),
       context: context,
     );
+  setState(() {
+  _progress = 0.8; 
+  });
     if (data == null) return;
 
     final recipe = data['recipe'] as String;
@@ -271,6 +306,9 @@ class _GeneratingPageState extends State<GeneratingPage> {
       ),
       ),
     );
+    setState(() {
+      _progress = 1.0; 
+    });
   } catch (e) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -278,104 +316,119 @@ class _GeneratingPageState extends State<GeneratingPage> {
       );
     }
     } finally {
+      _stopFakeProgress();
       if (mounted) setState(() { _generatingFinal = false; });
   }
 }
 
-  @override
+@override
 Widget build(BuildContext context) {
-  if (_loadingDefault || _generatingFinal || _loadingCandidates) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_generatingFinal
-          ? 'Finalizing Recipe...'
-          : _loadingDefault
-              ? 'Generating Instantly...'
-              : _loadingCandidates
-                ? 'Loading Candidates...'
-                : 'AI Recipe Generator')),
-      body: const Center(child: CircularProgressIndicator()),
-    );
-  }
-  if (_error != null) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Error')),
-      body: Center(child: Text(_error!)),
-    );
-  }
+  final bool isLoading = _loadingCandidates || _generatingFinal || _loadingDefault;
 
   return Scaffold(
-    appBar: AppBar(title: const Text('AI Recipe Generator')),
-    body: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          if (widget.mode == 'final')
-            ElevatedButton.icon(
-              icon: const Icon(Icons.flash_on),
-              label: const Text('Generate Instantly'),
-              onPressed: _loadingDefault ? null : () => _generateFinalRecipe('', ''),
-            ),
-          if (widget.mode == 'candidates') ...[
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Options'),
-              onPressed: _loadingCandidates ? null : _generateCandidates,
-            ),
-            const SizedBox(height: 24),
-            if (_showCandidates && _candidates.isNotEmpty)
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isSmallScreen = constraints.maxWidth < 800;
-                    if (isSmallScreen) {
-                      // Keep vertical list for mobile / narrow
-                      return ListView.separated(
-                        itemCount: _candidates.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, i) => _CandidateCard(
-                          candidate: _candidates[i],
-                          onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? '', _candidates[i]['image_url'] ?? ''),
-                          fullWidth: true,
-                        ),
-                      );
-                    }
+    appBar: AppBar(
+      title: Text(
+        _generatingFinal
+          ? 'Finalizing Recipe...'
+          : _loadingDefault
+            ? 'Generating Instantly...'
+            : _loadingCandidates
+              ? 'Loading Candidates...'
+              : 'AI Recipe Generator'
+      ),
 
-                    // Wide screen – show cards side-by-side
-                    final perCardSpace = constraints.maxWidth / _candidates.length;
-                    final cardWidth = perCardSpace * 0.7; // 30% smaller than full slot
+      bottom: isLoading
+        ? PreferredSize(
+            preferredSize: const Size.fromHeight(4.0),
+            child: LinearProgressIndicator(
+              value: (_progress > 0 && _progress <= 1.0) ? _progress : null,
+              minHeight: 4,
+            ),
+          )
+        : null,
+    ),
 
-                    return Center(
-                      child: SizedBox(
-                        height: constraints.maxHeight * 0.7, // 30% shorter
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(_candidates.length, (i) {
-                            return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: SizedBox(
-                                width: cardWidth,
-                                child: _CandidateCard(
-                                  candidate: _candidates[i],
-                                  onSelect: () => _generateFinalRecipe(_candidates[i]['title'] ?? '', _candidates[i]['image_url'] ?? ''),
-                                  fullWidth: false,
-                                ),
-                              ),
-                            );
-                          }),
+    body: isLoading
+      ? const Center(child: CircularProgressIndicator())
+      : (_error != null
+          ? Center(child: Text(_error!))
+          : _buildContent()
+        ),
+  );
+}
+
+Widget _buildContent() {
+  return Padding(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      children: [
+        if (widget.mode == 'final')
+          ElevatedButton.icon(
+            icon: const Icon(Icons.flash_on),
+            label: const Text('Generate Instantly'),
+            onPressed: _loadingDefault ? null : () => _generateFinalRecipe('', ''),
+          ),
+        if (widget.mode == 'candidates') ...[
+          ElevatedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh Options'),
+            onPressed: _loadingCandidates ? null : _generateCandidates,
+          ),
+          const SizedBox(height: 24),
+          if (_showCandidates && _candidates.isNotEmpty)
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isSmallScreen = constraints.maxWidth < 800;
+                  if (isSmallScreen) {
+                    return ListView.separated(
+                      itemCount: _candidates.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, i) => _CandidateCard(
+                        candidate: _candidates[i],
+                        onSelect: () => _generateFinalRecipe(
+                          _candidates[i]['title'] ?? '',
+                          _candidates[i]['image_url'] ?? '',
                         ),
+                        fullWidth: true,
                       ),
                     );
-                  },
-                ),
+                  }
+                  final perCardSpace = constraints.maxWidth / _candidates.length;
+                  final cardWidth = perCardSpace * 0.7;
+                  return Center(
+                    child: SizedBox(
+                      height: constraints.maxHeight * 0.7,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(_candidates.length, (i) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: SizedBox(
+                              width: cardWidth,
+                              child: _CandidateCard(
+                                candidate: _candidates[i],
+                                onSelect: () => _generateFinalRecipe(
+                                  _candidates[i]['title'] ?? '',
+                                  _candidates[i]['image_url'] ?? '',
+                                ),
+                                fullWidth: false,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  );
+                },
               ),
-          ],
+            ),
         ],
-      ),
+      ],
     ),
   );
 }
 }
-
 // =============================================================================
 // CANDIDATE CARD WIDGET
 // =============================================================================
@@ -400,6 +453,7 @@ class _CandidateCardState extends State<_CandidateCard> {
 
   @override
   Widget build(BuildContext context) {
+    
     final title = widget.candidate['title'] ?? 'No title';
     final desc = widget.candidate['description'] ?? '';
     final imgUrl = widget.candidate['image_url'] ?? '';
