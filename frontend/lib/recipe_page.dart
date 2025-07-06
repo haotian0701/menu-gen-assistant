@@ -22,9 +22,30 @@ class NutritionPieChart extends StatelessWidget {
     return PieChart(
       PieChartData(
         sections: [
-          PieChartSectionData(value: pCal, title: 'Protein'),
-          PieChartSectionData(value: cCal, title: 'Carbs'),
-          PieChartSectionData(value: fCal, title: 'Fat'),
+                    PieChartSectionData(
+                      value: pCal,
+                      title: 'Protein',
+                      color: Theme.of(context).colorScheme.secondary,
+                      radius: 60,
+                      titlePositionPercentageOffset: 0.8,
+                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      value: cCal,
+                      title: 'Carbs',
+                      color: Theme.of(context).colorScheme.primary,
+                      radius: 60,
+                      titlePositionPercentageOffset: 0.8,
+                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      value: fCal,
+                      title: 'Fat',
+                      color: Theme.of(context).colorScheme.tertiary,
+                      radius: 60,
+                      titlePositionPercentageOffset: 0.8,
+                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
         ],
         sectionsSpace: 4,
         centerSpaceRadius: 40,
@@ -439,15 +460,26 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null) ...[
-                  const SizedBox(height: 24),
-                  Text('Nutritional Breakdown', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 200,
-                    child: NutritionPieChart(data: nutritionInfo!),
+                  if (nutritionInfo != null) Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Nutritional Breakdown',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 180,
+                            child: NutritionPieChart(data: nutritionInfo!),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
                   const SizedBox(height: 24),
                   ActionButtons(
                     pageTitle: pageTitle,
@@ -536,16 +568,26 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null) ...[
-                  const SizedBox(height: 24),
-                  Text('Nutritional Breakdown', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 200,
-                    child: NutritionPieChart(data: nutritionInfo!),
+                  if (nutritionInfo != null) Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Nutritional Breakdown',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 180,
+                            child: NutritionPieChart(data: nutritionInfo!),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                ],
                   ActionButtons(
                     pageTitle: pageTitle,
                     recipe: recipe,

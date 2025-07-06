@@ -13,13 +13,13 @@ dependencies:
   supabase_flutter: ^2.9.0
   flutter_dotenv: ^5.0.2
   sign_in_with_apple: ^7.0.1
-  file_picker: ^8.0.7
+  file_picker: ^10.2.0
   path: ^1.9.1
   http: ^1.1.0
   flutter_html: ^3.0.0-beta.2 # Or latest stable version
-  share_plus: ^9.0.0      # Use latest version
+  share_plus: ^11.0.0      # Use latest version
   url_launcher: ^6.1.7
-  fl_chart: ^0.65.0
+  fl_chart: ^1.0.0
 
 dev_dependencies:
   flutter_test:
