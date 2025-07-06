@@ -189,15 +189,11 @@ async function generateDishImage(title) {
         "x-goog-api-key": GEMINI_API_KEY
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ],
+        model: "gemini-2.0-flash-preview-image-generation",
+        contents: prompt,
+        config: {
+          responseModalities: ["IMAGE"],
+        },
         generationConfig: {
           thinkingConfig: {
             thinkingBudget: 0
