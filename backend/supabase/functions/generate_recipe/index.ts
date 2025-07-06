@@ -73,20 +73,20 @@ function cleanGeminiJsonResponse(rawText) {
   return rawText.replace(/```json\n?/, '').replace(/```$/, '').trim();
 }
 // Helper to extract nutrition info
-function extractNutritionInfo(html) {
-  const section = html.match(/<h2[^>]*>Nutritional Analysis<\/h2>([\s\S]*?)(<h2|$)/i);
-  if (!section) return null;
-  const text = section[1];
-  function parseVal(re) {
-    const m = text.match(re);
-    return m ? parseFloat(m[1]) : null;
-  }
-  return {
-    calories: parseVal(/Calories:\s*([\d.]+)\s*k?cal/i),
-    protein: parseVal(/Protein:\s*([\d.]+)\s*g/i),
-    carbs: parseVal(/Carbohydrates?:\s*([\d.]+)\s*g/i),
-    fat: parseVal(/Fat:\s*([\d.]+)\s*g/i)
+function extractNutritionInfo(html: string) {
+  const info = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const patterns: { [K in keyof typeof info]: RegExp } = {
+    calories: /Calories:\s*[^0-9]*([\d]+(?:\.\d+)?)/i,
+    protein:  /Protein:\s*[^0-9]*([\d]+(?:\.\d+)?)/i,
+    carbs:    /Carbs?:\s*[^0-9]*([\d]+(?:\.\d+)?)/i,
+    fat:      /Fat:\s*[^0-9]*([\d]+(?:\.\d+)?)/i,
   };
+
+  for (const key of Object.keys(patterns) as (keyof typeof info)[]) {
+    const m = html.match(patterns[key]);
+    if (m) info[key] = parseFloat(m[1]);
+  }
+  return info;
 }
 // Environment variables
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");

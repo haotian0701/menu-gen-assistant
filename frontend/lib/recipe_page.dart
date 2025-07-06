@@ -536,7 +536,16 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
+                  if (nutritionInfo != null) ...[
                   const SizedBox(height: 24),
+                  Text('Nutritional Breakdown', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 200,
+                    child: NutritionPieChart(data: nutritionInfo!),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                   ActionButtons(
                     pageTitle: pageTitle,
                     recipe: recipe,

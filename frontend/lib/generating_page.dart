@@ -224,6 +224,12 @@ class _GeneratingPageState extends State<GeneratingPage> {
     final items = (data['items'] as List).cast<Map<String, dynamic>>();
     final videoUrl = data['video_url'] as String?;
     final mainImageUrl = data['main_image_url'] as String?;
+    final raw = data['nutrition_info'] as Map<String, dynamic>?;
+    final nutritionInfo = <String,double>{
+      'protein': raw?['protein']?.toDouble() ?? 0,
+      'carbs':   raw?['carbs']?.toDouble()   ?? 0,
+      'fat':     raw?['fat']?.toDouble()     ?? 0,
+    };
 
     // history
     final user = client.auth.currentUser;
@@ -260,12 +266,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
           mainImageUrl: mainImageUrl,
           isFitnessMode: widget.mode == 'fitness',
           nutritionInfo: widget.mode == 'fitness'
-              ? (widget.nutritionInfo ?? {}).map(
-                  (key, value) => MapEntry(
-                    key.toString(),
-                    value is double ? value : double.tryParse(value.toString()) ?? 0.0,
-                  ),
-                )
+              ? nutritionInfo
               : null,
       ),
       ),
