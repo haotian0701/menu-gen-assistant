@@ -93,8 +93,8 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
 const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent";
+const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent";
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
