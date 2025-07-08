@@ -9,6 +9,7 @@ import 'error_utils.dart';
 
 import 'generating_page.dart';
 import 'account_icon_button.dart';
+import 'upload_page.dart';  // Add import for home page
 
 class ExtractionPage extends StatefulWidget {
   final String imageUrl;
@@ -589,15 +590,11 @@ class AppHeader extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding:
-              EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
+              bottom: BorderSide(color: Colors.grey.shade200, width: 1),
             ),
           ),
           child: Row(
@@ -610,16 +607,24 @@ class AppHeader extends StatelessWidget {
                 ),
                 child: IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(
-                    Icons.arrow_back,
-                    color: Colors.grey.shade700,
-                    size: 20,
-                  ),
+                  icon: Icon(Icons.arrow_back, color: Colors.grey.shade700, size: 20),
                   tooltip: 'Go back',
                 ),
               ),
               const SizedBox(width: 16),
-              BrandSection(isSmallScreen: isSmallScreen),
+              // Clickable brand section
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const UploadImagePage()),
+                      (route) => false,
+                    );
+                  },
+                  child: BrandSection(isSmallScreen: isSmallScreen),
+                ),
+              ),
               const Spacer(),
               const AccountIconButton(),
             ],
@@ -633,52 +638,46 @@ class AppHeader extends StatelessWidget {
 class BrandSection extends StatelessWidget {
   final bool isSmallScreen;
 
-  const BrandSection({
-    super.key,
-    required this.isSmallScreen,
-  });
+  const BrandSection({super.key, required this.isSmallScreen});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E40AF),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            Icons.restaurant,
-            color: Colors.white,
-            size: isSmallScreen ? 16 : 20,
-          ),
-        ),
-        SizedBox(width: isSmallScreen ? 8 : 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // Hoverable brand logo/title
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const UploadImagePage()),
+            (route) => false,
+          );
+        },
+        child: Row(
           children: [
-            Text(
-              'Recipe.AI',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 16 : 20,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
-                letterSpacing: -0.5,
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E40AF),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.restaurant,
+                color: Colors.white,
+                size: isSmallScreen ? 16 : 20,
               ),
             ),
-            if (!isSmallScreen)
-              const Text(
-                'AI-Powered Recipe Generator',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
+            SizedBox(width: isSmallScreen ? 8 : 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Recipe.AI', style: TextStyle(fontSize: isSmallScreen ? 16 : 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: -0.5)),
+                if (!isSmallScreen)
+                  const Text('AI-Powered Recipe Generator', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w400)),
+              ],
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }

@@ -142,20 +142,22 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                                 final items = (rec['detected_items'] as List?)
                                     ?.cast<Map<String, dynamic>>()
                                     ?? <Map<String, dynamic>>[];
+                                final videoUrl = rec['video_url'] as String?;
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => RecipePage(
                                       imageUrl: uploadedUrl,
                                       recipe: recipeHtml,
                                       detectedItems: items,
+                                      videoUrl: videoUrl,
                                       mealType: rec['meal_type'] as String,
                                       dietaryGoal: rec['dietary_goal'] as String,
                                       mealTime: rec['meal_time'] as String,
                                       amountPeople: rec['amount_people'] as String,
                                       restrictDiet: rec['restrict_diet'] as String,
                                       mainImageUrl: previewUrl,
-                                      videoUrl: rec['video_url'] as String?,
                                       nutritionInfo: (rec['nutrition_info'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())),
+                                      onBack: () => Navigator.of(context).pop(),
                                     ),
                                   ),
                                 );

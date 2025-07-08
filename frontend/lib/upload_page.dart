@@ -313,29 +313,36 @@ class AppHeader extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding:
-              EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
+              bottom: BorderSide(color: Colors.grey.shade200, width: 1),
             ),
           ),
           child: Row(
             children: [
-              BrandSection(isSmallScreen: isSmallScreen),
-              const Spacer(),
-              const AccountIconButton(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const UploadImagePage()),
+                      (route) => false,
+                    );
+                  },
+                  child: BrandSection(isSmallScreen: isSmallScreen),
+                ),
+              ),
+               const Spacer(),
+               const AccountIconButton(),
+             ],
+           ),
+         );
+       },
+     );
+   }
+ }
 
 class BrandSection extends StatelessWidget {
   final bool isSmallScreen;
@@ -1392,4 +1399,4 @@ const String _advancedModeBody = 'Ready to get specific? In Advanced Mode, you\'
 
 const String _quickModeBody = 'No time to spare? No problem! Quick Mode is our express lane to deliciousness.\n\nJust hit the button and we\'ll instantly conjure up a recipe for you.\n\nIt\'s the fastest way to go from "what should I eat?" to "yum!"';
 
-const String _fitnessModeBody = 'In Fitness Mode, you can generate recipes tailored for fitness, and fill in your personal data such as height, weight, gender, age, and fitness goals. Great for meal planning, calorie control, and building a healthier diet!'; 
+const String _fitnessModeBody = 'In Fitness Mode, you can generate recipes tailored for fitness, and fill in your personal data such as height, weight, gender, age, and fitness goals. Great for meal planning, calorie control, and building a healthier diet!';

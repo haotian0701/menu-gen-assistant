@@ -192,6 +192,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     mealTime: mealTime,
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
+                    onBack: () => Navigator.of(context).pop(),
                   ),
                 ),
               );

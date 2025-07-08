@@ -9,6 +9,7 @@ import 'generating_page.dart';
 import 'extraction_page.dart';
 import 'main.dart'; // For AuthPage
 import 'saved_recipes_page.dart';
+import 'upload_page.dart';
 
 class NutritionPieChart extends StatelessWidget {
   final Map<String, double> data; // keys: 'protein','carbs','fat'
@@ -91,6 +92,8 @@ class RecipePage extends StatefulWidget {
   final String? mainImageUrl;
   final bool? isFitnessMode;
   final Map<String, double>? nutritionInfo;
+  // Optional custom back action
+  final VoidCallback? onBack;
 
   const RecipePage({
     super.key,
@@ -106,6 +109,7 @@ class RecipePage extends StatefulWidget {
     this.mainImageUrl,
     this.isFitnessMode,
     this.nutritionInfo,
+    this.onBack,
   });
 
   @override
@@ -153,6 +157,7 @@ class _RecipePageState extends State<RecipePage> {
               mealTime: widget.mealTime,
               amountPeople: widget.amountPeople,
               restrictDiet: widget.restrictDiet,
+              onBack: widget.onBack,
             ),
             Expanded(
               child: LayoutBuilder(
@@ -205,6 +210,7 @@ class _RecipePageState extends State<RecipePage> {
 // =============================================================================
 
 class AppHeader extends StatelessWidget {
+  final VoidCallback? onBack; // optional custom back callback
   final String imageUrl;
   final List<Map<String, dynamic>> detectedItems;
   final String mealType;
@@ -215,6 +221,7 @@ class AppHeader extends StatelessWidget {
 
   const AppHeader({
     super.key,
+    this.onBack,
     required this.imageUrl,
     required this.detectedItems,
     required this.mealType,
@@ -253,17 +260,34 @@ class AppHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: IconButton(
-                  onPressed: () => _navigateToExtraction(context),
+                  onPressed: () {
+                    if (onBack != null) {
+                      onBack!();
+                    } else {
+                      _navigateToExtraction(context);
+                    }
+                  },
                   icon: Icon(
                     Icons.arrow_back,
                     color: Colors.grey.shade700,
                     size: 20,
                   ),
-                  tooltip: 'Go back to extraction',
+                  tooltip: 'Go back',
                 ),
               ),
               const SizedBox(width: 16),
-              BrandSection(isSmallScreen: isSmallScreen),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const UploadImagePage()),
+                      (route) => false,
+                    );
+                  },
+                  child: BrandSection(isSmallScreen: isSmallScreen),
+                ),
+              ),
               const Spacer(),
               const AccountIconButton(),
             ],
@@ -302,45 +326,57 @@ class BrandSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E40AF),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            Icons.restaurant,
-            color: Colors.white,
-            size: isSmallScreen ? 16 : 20,
-          ),
-        ),
-        SizedBox(width: isSmallScreen ? 8 : 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          // Navigate to UploadImagePage on tap
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const UploadImagePage()),
+          );
+        },
+        child: Row(
           children: [
-            Text(
-              'Recipe.AI',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 16 : 20,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
-                letterSpacing: -0.5,
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E40AF),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.restaurant,
+                color: Colors.white,
+                size: isSmallScreen ? 16 : 20,
               ),
             ),
-            if (!isSmallScreen)
-              const Text(
-                'AI-Powered Recipe Generator',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w400,
+            SizedBox(width: isSmallScreen ? 8 : 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recipe.AI',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 16 : 20,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
+                if (!isSmallScreen)
+                  const Text(
+                    'AI-Powered Recipe Generator',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
