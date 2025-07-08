@@ -3,49 +3,50 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'account_icon_button.dart';
 import 'generating_page.dart';
 import 'extraction_page.dart';
-
-
+import 'main.dart'; // For AuthPage
+import 'saved_recipes_page.dart';
 
 class NutritionPieChart extends StatelessWidget {
-  final Map<String,double> data; // keys: 'protein','carbs','fat'
+  final Map<String, double> data; // keys: 'protein','carbs','fat'
 
-  const NutritionPieChart({ super.key, required this.data });
+  const NutritionPieChart({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
     final pCal = data['protein']! * 4;
-    final cCal = data['carbs']!   * 4;
-    final fCal = data['fat']!     * 9;
+    final cCal = data['carbs']! * 4;
+    final fCal = data['fat']! * 9;
     return PieChart(
       PieChartData(
         sections: [
-                    PieChartSectionData(
-                      value: pCal,
-                      title: 'Protein',
-                      color: Theme.of(context).colorScheme.secondary,
-                      radius: 60,
-                      titlePositionPercentageOffset: 0.8,
-                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    PieChartSectionData(
-                      value: cCal,
-                      title: 'Carbs',
-                      color: Theme.of(context).colorScheme.primary,
-                      radius: 60,
-                      titlePositionPercentageOffset: 0.8,
-                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    PieChartSectionData(
-                      value: fCal,
-                      title: 'Fat',
-                      color: Theme.of(context).colorScheme.tertiary,
-                      radius: 60,
-                      titlePositionPercentageOffset: 0.8,
-                      titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
+          PieChartSectionData(
+            value: pCal,
+            title: 'Protein',
+            color: Theme.of(context).colorScheme.secondary,
+            radius: 60,
+            titlePositionPercentageOffset: 0.8,
+            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          PieChartSectionData(
+            value: cCal,
+            title: 'Carbs',
+            color: Theme.of(context).colorScheme.primary,
+            radius: 60,
+            titlePositionPercentageOffset: 0.8,
+            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          PieChartSectionData(
+            value: fCal,
+            title: 'Fat',
+            color: Theme.of(context).colorScheme.tertiary,
+            radius: 60,
+            titlePositionPercentageOffset: 0.8,
+            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         ],
         sectionsSpace: 4,
         centerSpaceRadius: 40,
@@ -53,7 +54,6 @@ class NutritionPieChart extends StatelessWidget {
     );
   }
 }
-
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -105,7 +105,7 @@ class RecipePage extends StatefulWidget {
     required this.restrictDiet,
     this.mainImageUrl,
     this.isFitnessMode,
-    this.nutritionInfo
+    this.nutritionInfo,
   });
 
   @override
@@ -184,7 +184,7 @@ class _RecipePageState extends State<RecipePage> {
                           mealTime: widget.mealTime,
                           amountPeople: widget.amountPeople,
                           restrictDiet: widget.restrictDiet,
-                          mainImageUrl: widget.mainImageUrl, 
+                          mainImageUrl: widget.mainImageUrl,
                           nutritionInfo: widget.nutritionInfo,
                         ),
                       ),
@@ -361,7 +361,7 @@ class RecipeSection extends StatelessWidget {
   final String amountPeople;
   final String restrictDiet;
   final String? mainImageUrl;
-  final Map<String,double>? nutritionInfo;
+  final Map<String, double>? nutritionInfo;
 
   const RecipeSection({
     super.key,
@@ -376,7 +376,7 @@ class RecipeSection extends StatelessWidget {
     required this.amountPeople,
     required this.restrictDiet,
     this.mainImageUrl,
-    this.nutritionInfo, 
+    this.nutritionInfo,
   });
 
   @override
@@ -432,7 +432,8 @@ class RecipeSection extends StatelessWidget {
                         'assets/images/recipe_placeholder.png',
                         width: double.infinity,
                         height: 180,
-                        fit: BoxFit.cover),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   const SizedBox(height: 20),
                   Text(
@@ -460,26 +461,27 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null) Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Nutritional Breakdown',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 180,
-                            child: NutritionPieChart(data: nutritionInfo!),
-                          ),
-                        ],
+                  if (nutritionInfo != null)
+                    Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Nutritional Breakdown',
+                                style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 180,
+                              child: NutritionPieChart(data: nutritionInfo!),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 24),
                   ActionButtons(
                     pageTitle: pageTitle,
@@ -491,6 +493,7 @@ class RecipeSection extends StatelessWidget {
                     mealTime: mealTime,
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
+                    mainImageUrl: mainImageUrl,
                   ),
                 ],
               ),
@@ -520,7 +523,8 @@ class RecipeSection extends StatelessWidget {
                 children: [
                   if (mainImageUrl?.isNotEmpty == true)
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
+                      borderRadius:
+                          BorderRadius.circular(isMobilePortrait ? 8 : 12),
                       child: Image.network(
                         mainImageUrl!,
                         width: double.infinity,
@@ -535,12 +539,14 @@ class RecipeSection extends StatelessWidget {
                     ),
                   if (mainImageUrl == null || mainImageUrl?.isEmpty == true)
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(isMobilePortrait ? 8 : 12),
+                      borderRadius:
+                          BorderRadius.circular(isMobilePortrait ? 8 : 12),
                       child: Image.asset(
                         'assets/images/recipe_placeholder.png',
                         width: double.infinity,
                         height: isMobilePortrait ? 180 : 240,
-                        fit: BoxFit.cover),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   const SizedBox(height: 20),
                   Text(
@@ -568,26 +574,27 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null) Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Nutritional Breakdown',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 180,
-                            child: NutritionPieChart(data: nutritionInfo!),
-                          ),
-                        ],
+                  if (nutritionInfo != null)
+                    Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Nutritional Breakdown',
+                                style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 180,
+                              child: NutritionPieChart(data: nutritionInfo!),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                   ActionButtons(
                     pageTitle: pageTitle,
                     recipe: recipe,
@@ -598,6 +605,7 @@ class RecipeSection extends StatelessWidget {
                     mealTime: mealTime,
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
+                    mainImageUrl: mainImageUrl,
                   ),
                 ],
               ),
@@ -700,7 +708,8 @@ class VideoButton extends StatelessWidget {
             onPressed: () async {
               final uri = Uri.parse(videoUrl);
               if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                await launchUrl(uri,
+                    mode: LaunchMode.externalApplication);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -833,6 +842,7 @@ class ActionButtons extends StatelessWidget {
   final String mealTime;
   final String amountPeople;
   final String restrictDiet;
+  final String? mainImageUrl;
 
   const ActionButtons({
     super.key,
@@ -845,10 +855,12 @@ class ActionButtons extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
+    this.mainImageUrl,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = Supabase.instance.client.auth.currentUser != null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 800;
@@ -859,13 +871,31 @@ class ActionButtons extends StatelessWidget {
           // Mobile portrait - stack buttons vertically with smaller spacing
           return Column(
             children: [
-              _buildPrimaryButton(
-                context,
-                'Save Recipe',
-                Icons.bookmark_add_rounded,
-                () => _saveRecipe(context),
-                isMobilePortrait: true,
+              Opacity(
+                opacity: isLoggedIn ? 1.0 : 0.5,
+                child: _buildPrimaryButton(
+                  context,
+                  'Save Recipe',
+                  Icons.bookmark_add_rounded,
+                  isLoggedIn ? () => _saveRecipe(context) : () {},
+                  isMobilePortrait: true,
+                ),
               ),
+              if (!isLoggedIn) ...[
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AuthPage()),
+                  ),
+                  child: Text(
+                    'Sign in to save recipes',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _buildSecondaryButton(
                 context,
@@ -889,15 +919,34 @@ class ActionButtons extends StatelessWidget {
           return Row(
             children: [
               Expanded(
-                child: _buildPrimaryButton(
-                  context,
-                  'Save Recipe',
-                  Icons.bookmark_add_rounded,
-                  () => _saveRecipe(context),
-                  isMobilePortrait: false,
+                child: Opacity(
+                  opacity: isLoggedIn ? 1.0 : 0.5,
+                  child: _buildPrimaryButton(
+                    context,
+                    'Save Recipe',
+                    Icons.bookmark_add_rounded,
+                    isLoggedIn ? () => _saveRecipe(context) : () {},
+                    isMobilePortrait: false,
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
+              if (!isLoggedIn) ...[
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AuthPage()),
+                  ),
+                  child: Text(
+                    'Sign in to save recipes',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(width: 16),
+              ],
               Expanded(
                 child: _buildSecondaryButton(
                   context,
@@ -1110,22 +1159,48 @@ class ActionButtons extends StatelessWidget {
     );
   }
 
-  void _saveRecipe(BuildContext context) {
-    // Implementation for saving recipe
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            const Text('Recipe saved successfully!'),
-          ],
+  void _saveRecipe(BuildContext context) async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: const Text('Please sign in to save recipes.'),
+            backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    try {
+      await client.from('saved_recipes').insert({
+        'user_id': user.id,
+        'recipe_title': pageTitle,
+        'recipe_content': recipe,
+        'image_url': mainImageUrl ?? imageUrl,
+        'meal_type': mealType,
+        'dietary_goal': dietaryGoal,
+        'meal_time': mealTime,
+        'amount_people': amountPeople,
+        'restrict_diet': restrictDiet,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Recipe saved!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
         ),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Failed to save recipe: $e'),
+            backgroundColor: Colors.redAccent),
+      );
+    }
   }
 
   void _shareRecipe(BuildContext context) {

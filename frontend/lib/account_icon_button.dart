@@ -4,6 +4,7 @@ import 'dart:async'; // Import for StreamSubscription
 import 'main.dart'; // For AuthPage
 import 'history_page.dart'; // For HistoryPage
 import 'preferences_page.dart';
+import 'saved_recipes_page.dart';
 
 class AccountIconButton extends StatefulWidget {
   const AccountIconButton({super.key});
@@ -151,6 +152,10 @@ class _AccountIconButtonState extends State<AccountIconButton> {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PreferencesPage()),
                 );
+              } else if (value == 'saved_recipes') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SavedRecipesPage()),
+                );
               } else if (value == 'logout') {
                 _signOut();
               }
@@ -289,6 +294,37 @@ class _AccountIconButtonState extends State<AccountIconButton> {
                         const SizedBox(width: 12),
                         const Text(
                           'Default Preferences',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (isLoggedIn)
+                PopupMenuItem<String>(
+                  value: 'saved_recipes',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4F46E5).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(
+                            Icons.bookmark,
+                            color: Color(0xFF4F46E5),
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Saved Recipes',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF374151),
