@@ -1171,11 +1171,13 @@ class ActionButtons extends StatelessWidget {
       return;
     }
     try {
+      // Insert both user-uploaded and generated preview URLs
       await client.from('saved_recipes').insert({
         'user_id': user.id,
         'recipe_title': pageTitle,
         'recipe_content': recipe,
-        'image_url': mainImageUrl ?? imageUrl,
+        'image_url': imageUrl,             // original user-uploaded photo
+        'main_image_url': mainImageUrl,     // preview/generated photo
         'meal_type': mealType,
         'dietary_goal': dietaryGoal,
         'meal_time': mealTime,

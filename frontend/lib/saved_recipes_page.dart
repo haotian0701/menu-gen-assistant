@@ -111,7 +111,11 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                           itemCount: _records.length,
                           itemBuilder: (context, i) {
                             final rec = _records[i];
-                            final imageUrl = rec['image_url'] as String;
+                            // Distinguish user-uploaded vs generated preview
+                            final uploadedUrl = rec['image_url'] as String;
+                            final previewUrl = (rec['main_image_url'] as String?)?.isNotEmpty == true
+                                ? rec['main_image_url'] as String
+                                : uploadedUrl;
                             final createdAt = _formatDate(rec['created_at'] as String);
                             var title = (rec['recipe_title'] as String?)?.trim() ?? '';
                             if (title.isEmpty) title = 'Untitled Recipe';
@@ -119,7 +123,7 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(6),
                                 child: Image.network(
-                                  imageUrl,
+                                  previewUrl,
                                   width: 56,
                                   height: 56,
                                   fit: BoxFit.cover,
@@ -141,7 +145,7 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => RecipePage(
-                                      imageUrl: imageUrl,
+                                      imageUrl: uploadedUrl,
                                       recipe: recipeHtml,
                                       detectedItems: items,
                                       mealType: rec['meal_type'] as String,
@@ -149,7 +153,7 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                                       mealTime: rec['meal_time'] as String,
                                       amountPeople: rec['amount_people'] as String,
                                       restrictDiet: rec['restrict_diet'] as String,
-                                      mainImageUrl: rec['main_image_url'] as String?,
+                                      mainImageUrl: previewUrl,
                                       videoUrl: rec['video_url'] as String?,
                                       nutritionInfo: (rec['nutrition_info'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, (v as num).toDouble())),
                                     ),

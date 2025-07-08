@@ -145,8 +145,11 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
       );
       for (var rec in recs) {
-        final imageUrl = rec['image_url'] as String;
-        final mainImageUrl = rec['main_image_url'] as String?;
+        // Distinct user-uploaded vs generated preview
+        final uploadedUrl = rec['image_url'] as String;
+        final previewUrl = (rec['main_image_url'] as String?)?.isNotEmpty == true
+            ? rec['main_image_url'] as String
+            : uploadedUrl;
         final createdAt = _formatDate(rec['created_at'] as String);
         String title = (rec['recipe_title'] as String?)?.trim() ?? '';
         if (title.isEmpty) {
@@ -160,7 +163,7 @@ class _HistoryPageState extends State<HistoryPage> {
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.network(
-                imageUrl,
+                previewUrl,
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,
@@ -180,8 +183,8 @@ class _HistoryPageState extends State<HistoryPage> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => RecipePage(
-                    imageUrl: imageUrl,
-                    mainImageUrl: mainImageUrl,
+                    imageUrl: uploadedUrl,
+                    mainImageUrl: previewUrl,
                     recipe: recipeHtml,
                     detectedItems: items,
                     mealType: rec['meal_type'] as String,

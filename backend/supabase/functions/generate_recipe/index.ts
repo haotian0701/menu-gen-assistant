@@ -525,6 +525,33 @@ Instructions:
       } else {
         main_image_url = FALLBACK_IMAGE_URL;
       }
+      // Ensure image generation fallback for fitness mode
+      if (!main_image_url) {
+        main_image_url = await generateDishImage(dishTitle || "dish");
+        if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
+      }
+      // Persist fitness run in history table
+      if (derived_user_id) {
+        await supabase.from('history').insert({
+          user_id: derived_user_id,
+          image_url,              // original uploaded URL
+          recipe_html: fitnessHtml,
+          recipe_title: dishTitle,
+          main_image_url,
+          video_url: null,
+          meal_type: '',
+          dietary_goal: '',
+          meal_time: '',
+          amount_people: '',
+          restrict_diet: '',
+          detected_items: items,
+          tags: ['fitness', fitness_goal],
+          preferred_region,
+          skill_level,
+          kitchen_tools,
+          nutrition_info,
+        });
+      }
       return new Response(JSON.stringify({
         items,
         recipe: fitnessHtml,
@@ -832,6 +859,12 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       categories.push(restrict_diet);
     }
     const recipeTitle = extractRecipeTitle(recipeHtml);
+    // Ensure main_image_url is set (fallback generation + placeholder)
+    if (!main_image_url) {
+      main_image_url = await generateDishImage(dishTitle || "dish");
+      if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
+    }
+    // Persist user history
     if (derived_user_id) {
       await supabase.from('history').insert({
         user_id: derived_user_id,
@@ -851,11 +884,6 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
         skill_level,
         kitchen_tools
       });
-    }
-    // Ensure we always have some image URL to send back 
-    if (!main_image_url) {
-      main_image_url = await generateDishImage(dishTitle || "dish");
-      if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
     }
     return new Response(JSON.stringify({
       items,

@@ -272,15 +272,17 @@ void dispose() {
       await client.from('history').insert({
         'user_id': user.id,
         'image_url': widget.imageUrl,
+        'main_image_url': mainImageUrl,
+        'recipe_html': recipe,
+        'recipe_title': selectedTitle.isNotEmpty ? selectedTitle : _extractTitleFromHtml(recipe),
+        'detected_items': items,
+        'video_url': widget.mode == 'fitness' ? null : videoUrl,
         'meal_type': widget.mealType,
         'dietary_goal': widget.dietaryGoal,
-        'detected_items': items,
-        'recipe_html': recipe,
-        'video_url': videoUrl,
-        'amount_people': widget.amountPeople,
         'meal_time': widget.mealTime,
+        'amount_people': widget.amountPeople,
         'restrict_diet': widget.restrictDiet,
-        'main_image_url': mainImageUrl, 
+        'nutrition_info': widget.mode == 'fitness' ? widget.nutritionInfo : null,
       });
     }
 
@@ -320,6 +322,12 @@ void dispose() {
       if (mounted) setState(() { _generatingFinal = false; });
   }
 }
+
+  // Helper to extract title from generated HTML
+  String _extractTitleFromHtml(String html) {
+    final match = RegExp(r"<h1[^>]*>(.*?)<\\/h1>", caseSensitive: false).firstMatch(html);
+    return match?.group(1)?.trim() ?? '';
+  }
 
 @override
 Widget build(BuildContext context) {
