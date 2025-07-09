@@ -163,7 +163,8 @@ class _RecipePageState extends State<RecipePage> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isSmallScreen = constraints.maxWidth < 800;
-                  final isPortrait = constraints.maxHeight > constraints.maxWidth;
+                  final isPortrait =
+                      constraints.maxHeight > constraints.maxWidth;
                   final isMobilePortrait = isSmallScreen && isPortrait;
                   final padding =
                       isMobilePortrait ? 16.0 : (isSmallScreen ? 24.0 : 40.0);
@@ -281,7 +282,8 @@ class AppHeader extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () {
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const UploadImagePage()),
+                      MaterialPageRoute(
+                          builder: (_) => const UploadImagePage()),
                       (route) => false,
                     );
                   },
@@ -485,13 +487,18 @@ class RecipeSection extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(videoUrl!), mode: LaunchMode.externalApplication),
+                        onTap: () => launchUrl(Uri.parse(videoUrl!),
+                            mode: LaunchMode.externalApplication),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.play_circle_fill, color: Colors.red.shade400, size: 28),
+                            Icon(Icons.play_circle_fill,
+                                color: Colors.red.shade400, size: 28),
                             const SizedBox(width: 8),
-                            Text('Watch on YouTube', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
+                            Text('Watch on YouTube',
+                                style: TextStyle(
+                                    color: Colors.red.shade400,
+                                    fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -501,7 +508,8 @@ class RecipeSection extends StatelessWidget {
                     Card(
                       elevation: 2,
                       margin: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -598,13 +606,18 @@ class RecipeSection extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(videoUrl!), mode: LaunchMode.externalApplication),
+                        onTap: () => launchUrl(Uri.parse(videoUrl!),
+                            mode: LaunchMode.externalApplication),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.play_circle_fill, color: Colors.red.shade400, size: 28),
+                            Icon(Icons.play_circle_fill,
+                                color: Colors.red.shade400, size: 28),
                             const SizedBox(width: 8),
-                            Text('Watch on YouTube', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
+                            Text('Watch on YouTube',
+                                style: TextStyle(
+                                    color: Colors.red.shade400,
+                                    fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -614,7 +627,8 @@ class RecipeSection extends StatelessWidget {
                     Card(
                       elevation: 2,
                       margin: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -744,8 +758,7 @@ class VideoButton extends StatelessWidget {
             onPressed: () async {
               final uri = Uri.parse(videoUrl);
               if (await canLaunchUrl(uri)) {
-                await launchUrl(uri,
-                    mode: LaunchMode.externalApplication);
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -907,6 +920,7 @@ class ActionButtons extends StatelessWidget {
           // Mobile portrait - stack buttons vertically with smaller spacing
           return Column(
             children: [
+              const SizedBox(height: 20),
               Opacity(
                 opacity: isLoggedIn ? 1.0 : 0.5,
                 child: _buildPrimaryButton(
@@ -919,34 +933,34 @@ class ActionButtons extends StatelessWidget {
               ),
               if (!isLoggedIn) ...[
                 const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const AuthPage()),
                   ),
-                  child: Text(
-                    'Sign in to save recipes',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
+                  child: const Text('Sign in to save recipes'),
                 ),
               ],
               const SizedBox(height: 12),
-              _buildSecondaryButton(
-                context,
-                'Share Recipe',
-                Icons.share_rounded,
-                () => _shareRecipe(context),
-                isMobilePortrait: true,
+              Opacity(
+                opacity: isLoggedIn ? 1.0 : 1.0,
+                child: _buildSecondaryButton(
+                  context,
+                  'Share Recipe',
+                  Icons.share_rounded,
+                  () => _shareRecipe(context),
+                  isMobilePortrait: true,
+                ),
               ),
               const SizedBox(height: 12),
-              _buildTertiaryButton(
-                context,
-                'Generate New Recipe',
-                Icons.refresh_rounded,
-                () => _generateNewRecipe(context),
-                isMobilePortrait: true,
+              Opacity(
+                opacity: isLoggedIn ? 1.0 : 1.0,
+                child: _buildTertiaryButton(
+                  context,
+                  'Generate New Recipe',
+                  Icons.refresh_rounded,
+                  () => _generateNewRecipe(context),
+                  isMobilePortrait: true,
+                ),
               ),
             ],
           );
@@ -968,38 +982,38 @@ class ActionButtons extends StatelessWidget {
               ),
               if (!isLoggedIn) ...[
                 const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const AuthPage()),
                   ),
-                  child: Text(
-                    'Sign in to save recipes',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
+                  child: const Text('Sign in to save recipes'),
                 ),
               ] else ...[
                 const SizedBox(width: 16),
               ],
               Expanded(
-                child: _buildSecondaryButton(
-                  context,
-                  'Share Recipe',
-                  Icons.share_rounded,
-                  () => _shareRecipe(context),
-                  isMobilePortrait: false,
+                child: Opacity(
+                  opacity: isLoggedIn ? 1.0 : 1.0,
+                  child: _buildSecondaryButton(
+                    context,
+                    'Share Recipe',
+                    Icons.share_rounded,
+                    () => _shareRecipe(context),
+                    isMobilePortrait: false,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildTertiaryButton(
-                  context,
-                  'Generate New Recipe',
-                  Icons.refresh_rounded,
-                  () => _generateNewRecipe(context),
-                  isMobilePortrait: false,
+                child: Opacity(
+                  opacity: isLoggedIn ? 1.0 : 1.0,
+                  child: _buildTertiaryButton(
+                    context,
+                    'Generate New Recipe',
+                    Icons.refresh_rounded,
+                    () => _generateNewRecipe(context),
+                    isMobilePortrait: false,
+                  ),
                 ),
               ),
             ],
@@ -1086,17 +1100,13 @@ class ActionButtons extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF3B82F6),
         borderRadius: BorderRadius.circular(isMobilePortrait ? 10 : 12),
-        border: Border.all(
-          color: const Color(0xFF3B82F6),
-          width: 2,
-        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.1),
-            blurRadius: isMobilePortrait ? 6 : 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF3B82F6).withOpacity(0.2),
+            blurRadius: isMobilePortrait ? 8 : 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1113,7 +1123,7 @@ class ActionButtons extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: const Color(0xFF3B82F6),
+                  color: Colors.white,
                   size: iconSize,
                 ),
                 SizedBox(width: isMobilePortrait ? 10 : 12),
@@ -1122,7 +1132,7 @@ class ActionButtons extends StatelessWidget {
                   style: TextStyle(
                     fontSize: fontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF3B82F6),
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -1148,17 +1158,13 @@ class ActionButtons extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: const Color(0xFF64748B),
         borderRadius: BorderRadius.circular(isMobilePortrait ? 10 : 12),
-        border: Border.all(
-          color: Colors.grey.shade300,
-          width: 1,
-        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: isMobilePortrait ? 6 : 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF64748B).withOpacity(0.2),
+            blurRadius: isMobilePortrait ? 8 : 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1175,7 +1181,7 @@ class ActionButtons extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: const Color(0xFF64748B),
+                  color: Colors.white,
                   size: iconSize,
                 ),
                 SizedBox(width: isMobilePortrait ? 10 : 12),
@@ -1184,7 +1190,7 @@ class ActionButtons extends StatelessWidget {
                   style: TextStyle(
                     fontSize: fontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF64748B),
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -1212,8 +1218,8 @@ class ActionButtons extends StatelessWidget {
         'user_id': user.id,
         'recipe_title': pageTitle,
         'recipe_content': recipe,
-        'image_url': imageUrl,             // original user-uploaded photo
-        'main_image_url': mainImageUrl,     // preview/generated photo
+        'image_url': imageUrl, // original user-uploaded photo
+        'main_image_url': mainImageUrl, // preview/generated photo
         'meal_type': mealType,
         'dietary_goal': dietaryGoal,
         'meal_time': mealTime,
