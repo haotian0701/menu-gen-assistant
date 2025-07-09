@@ -68,7 +68,8 @@ class _AuthPageState extends State<AuthPage> {
       final res = await supabase.auth.signUp(
         email: emailController.text.trim(),
         password: passwordController.text,
-        data: { // Store username in user_metadata
+        data: {
+          // Store username in user_metadata
           'username': usernameController.text.trim(),
         },
       );
@@ -82,17 +83,20 @@ class _AuthPageState extends State<AuthPage> {
             passwordController.clear(); // Clear password for login
           });
         } else if (res.session == null && res.user == null) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sign-up successful! Check your email for verification.')),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Sign-up successful! Check your email for verification.')),
           );
           setState(() {
             _isLogin = true;
             passwordController.clear();
           });
-        }
-         else {
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.user?.toString() ?? 'Sign-up failed. User might already exist or email needs confirmation.')),
+            SnackBar(
+                content: Text(res.user?.toString() ??
+                    'Sign-up failed. User might already exist or email needs confirmation.')),
           );
         }
       }
@@ -152,57 +156,75 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Sign Up')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView( // Added SingleChildScrollView for smaller screens
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!_isLogin) // Show username field only for sign-up
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!_isLogin)
+                        TextField(
+                          controller: usernameController,
+                          decoration:
+                              const InputDecoration(labelText: 'Username'),
+                          textInputAction: TextInputAction.next,
+                        ),
+                      if (!_isLogin) const SizedBox(height: 8),
                       TextField(
-                        controller: usernameController,
-                        decoration: const InputDecoration(labelText: 'Username'),
+                        controller: emailController,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                        keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                       ),
-                    if (!_isLogin) const SizedBox(height: 8),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(labelText: 'Password'),
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _isLogin ? _login() : _signUp(),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _isLogin ? _login : _signUp,
-                      child: Text(_isLogin ? 'Log In' : 'Sign Up'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _isLogin = !_isLogin;
-                        });
-                      },
-                      child: Text(
-                        _isLogin
-                            ? 'Need an account? Sign Up'
-                            : 'Have an account? Log In',
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: passwordController,
+                        decoration:
+                            const InputDecoration(labelText: 'Password'),
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _isLogin ? _login() : _signUp(),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _isLogin ? _login : _signUp,
+                        child: Text(_isLogin ? 'Log In' : 'Sign Up'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _isLogin = !_isLogin;
+                          });
+                        },
+                        child: Text(
+                          _isLogin
+                              ? 'Need an account? Sign Up'
+                              : 'Have an account? Log In',
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
 }
+
