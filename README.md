@@ -1,4 +1,4 @@
-# 🍽 Menu Generation Assistant
+# 🍽 Recipe.AI
 
 A Flutter + Supabase project that allows users to:
 
