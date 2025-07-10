@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'animated_loading.dart';
 
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key});
@@ -256,7 +257,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Default Preferences')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AnimatedLoadingWidget(type: LoadingType.loading)
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(

@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'extraction_page.dart';
 import 'account_icon_button.dart';
 import 'generating_page.dart';
+import 'animated_loading.dart';
 
 // =============================================================================
 // MAIN PAGE CLASS
@@ -651,7 +652,7 @@ class UploadArea extends StatelessWidget {
               );
             }
             if (!snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const AnimatedLoadingWidget(type: LoadingType.uploading);
             }
 
             final imgSize = snap.data!;
@@ -832,26 +833,9 @@ class UploadButton extends StatelessWidget {
   }
 
   Widget _buildLoadingContent() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          height: 18,
-          width: 18,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Text(
-          'Uploading...',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+    return const CompactLoadingWidget(
+      type: LoadingType.uploading,
+      customMessage: "Uploading...",
     );
   }
 

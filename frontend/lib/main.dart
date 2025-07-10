@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'upload_page.dart'; // Ensure this is the correct import for UploadImagePage
+import 'animated_loading.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -174,7 +175,7 @@ class _AuthPageState extends State<AuthPage> {
               ],
             ),
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const AnimatedLoadingWidget(type: LoadingType.loading)
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,

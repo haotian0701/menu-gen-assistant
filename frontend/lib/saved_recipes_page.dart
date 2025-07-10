@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'recipe_page.dart';
 import 'account_icon_button.dart';
 import 'main.dart'; // For AuthPage
+import 'animated_loading.dart';
 
 class SavedRecipesPage extends StatefulWidget {
   const SavedRecipesPage({super.key});
@@ -102,7 +103,7 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
               ),
             )
           : _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const AnimatedLoadingWidget(type: LoadingType.loading)
               : _error != null
                   ? Center(child: Text(_error!))
                   : _records.isEmpty

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'recipe_page.dart';
 import 'account_icon_button.dart'; // Import the new widget
 import 'main.dart'; // For AuthPage
+import 'animated_loading.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -111,7 +112,7 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             )
           : _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const AnimatedLoadingWidget(type: LoadingType.loading)
               : _error != null
                   ? Center(child: Text(_error!))
                   : _records.isEmpty

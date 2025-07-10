@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'error_utils.dart';
 import 'recipe_page.dart';
+import 'animated_loading.dart';
 
 int? parseInt(String? s) => int.tryParse(s ?? '');
 double? parseDouble(String? s) => double.tryParse(s ?? '');
@@ -356,7 +357,7 @@ Widget build(BuildContext context) {
     ),
 
     body: isLoading
-      ? const Center(child: CircularProgressIndicator())
+      ? const AnimatedLoadingWidget(type: LoadingType.cooking)
       : (_error != null
           ? Center(child: Text(_error!))
           : _buildContent()

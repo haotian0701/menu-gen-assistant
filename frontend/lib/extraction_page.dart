@@ -11,6 +11,7 @@ import 'error_utils.dart';
 import 'generating_page.dart';
 import 'account_icon_button.dart';
 import 'upload_page.dart';  // Add import for home page
+import 'animated_loading.dart';
 
 class ExtractionPage extends StatefulWidget {
   final String imageUrl;
@@ -80,9 +81,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
   Widget build(BuildContext context) {
     if (_disposed) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: AnimatedLoadingWidget(type: LoadingType.loading),
       );
     }
 
@@ -1000,21 +999,9 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text(
-            'Detecting ingredients...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
-      ),
+    return const AnimatedLoadingWidget(
+      type: LoadingType.analyzing,
+      customMessage: "🔍 Detecting ingredients in your photo...",
     );
   }
 }
@@ -1118,7 +1105,7 @@ class _ImageDisplay extends StatelessWidget {
               );
             }
             if (!snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const AnimatedLoadingWidget(type: LoadingType.analyzing);
             }
 
             final imgSize = snap.data!;
