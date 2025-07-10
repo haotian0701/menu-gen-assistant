@@ -133,7 +133,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                       child: GenerateButton(
                                         controller: _extractionController,
                                         mode: 'candidates',
-                                        label: 'Show Recipe Options',
+                                        label: _extractionController.mode == 'fitness' 
+                                            ? 'Generate Recipe' 
+                                            : 'Show Recipe Options',
                                         icon: Icons.tune,
                                         color: Color(0xFF1E40AF),
                                       ),
@@ -172,7 +174,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           child: GenerateButton(
                                             controller: _extractionController,
                                             mode: 'candidates',
-                                            label: 'Show Recipe Options',
+                                            label: _extractionController.mode == 'fitness' 
+                                                ? 'Generate Recipe' 
+                                                : 'Show Recipe Options',
                                             icon: Icons.tune,
                                             color: Color(0xFF1E40AF),
                                           ),
@@ -214,7 +218,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           child: GenerateButton(
                                             controller: _extractionController,
                                             mode: 'candidates',
-                                            label: 'Show Recipe Options',
+                                            label: _extractionController.mode == 'fitness' 
+                                                ? 'Generate Recipe' 
+                                                : 'Show Recipe Options',
                                             icon: Icons.tune,
                                             color: Color(0xFF1E40AF),
                                           ),
@@ -685,22 +691,38 @@ class BrandSection extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+              width: isSmallScreen ? 32 : 40,
+              height: isSmallScreen ? 32 : 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E40AF),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(
-                Icons.restaurant,
-                color: Colors.white,
-                size: isSmallScreen ? 16 : 20,
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                width: isSmallScreen ? 32 : 40,
+                height: isSmallScreen ? 32 : 40,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to default icon if custom icon fails to load
+                  return Container(
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E40AF),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.restaurant,
+                      color: Colors.white,
+                      size: isSmallScreen ? 16 : 20,
+                    ),
+                  );
+                },
               ),
             ),
             SizedBox(width: isSmallScreen ? 8 : 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recipe.AI', style: TextStyle(fontSize: isSmallScreen ? 16 : 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: -0.5)),
+                Text('Cookpilot', style: TextStyle(fontSize: isSmallScreen ? 16 : 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: -0.5)),
                 if (!isSmallScreen)
                   const Text('AI-Powered Recipe Generator', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w400)),
               ],

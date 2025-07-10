@@ -23,6 +23,18 @@ class NutritionPieChart extends StatelessWidget {
     final totalCal = data['calories'] != null && data['calories']! > 0
         ? data['calories']!
         : (pCal + cCal + fCal);
+    
+    // Use gram amounts for proportions to match the legend display
+    final proteinGrams = data['protein']!;
+    final carbsGrams = data['carbs']!;
+    final fatGrams = data['fat']!;
+    final totalGrams = proteinGrams + carbsGrams + fatGrams;
+    
+    // Calculate percentages based on gram amounts
+    final proteinPercentage = (proteinGrams / totalGrams) * 100;
+    final carbsPercentage = (carbsGrams / totalGrams) * 100;
+    final fatPercentage = (fatGrams / totalGrams) * 100;
+    
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -30,7 +42,7 @@ class NutritionPieChart extends StatelessWidget {
           PieChartData(
             sections: [
               PieChartSectionData(
-                value: pCal,
+                value: proteinPercentage,
                 title: 'Protein',
                 color: Theme.of(context).colorScheme.secondary,
                 radius: 60,
@@ -39,7 +51,7 @@ class NutritionPieChart extends StatelessWidget {
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               PieChartSectionData(
-                value: cCal,
+                value: carbsPercentage,
                 title: 'Carbs',
                 color: Theme.of(context).colorScheme.primary,
                 radius: 60,
@@ -48,7 +60,7 @@ class NutritionPieChart extends StatelessWidget {
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               PieChartSectionData(
-                value: fCal,
+                value: fatPercentage,
                 title: 'Fat',
                 color: Theme.of(context).colorScheme.tertiary,
                 radius: 60,
@@ -386,15 +398,31 @@ class BrandSection extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+              width: isSmallScreen ? 32 : 40,
+              height: isSmallScreen ? 32 : 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E40AF),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(
-                Icons.restaurant,
-                color: Colors.white,
-                size: isSmallScreen ? 16 : 20,
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                width: isSmallScreen ? 32 : 40,
+                height: isSmallScreen ? 32 : 40,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to default icon if custom icon fails to load
+                  return Container(
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E40AF),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.restaurant,
+                      color: Colors.white,
+                      size: isSmallScreen ? 16 : 20,
+                    ),
+                  );
+                },
               ),
             ),
             SizedBox(width: isSmallScreen ? 8 : 12),
@@ -402,7 +430,7 @@ class BrandSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Recipe.AI',
+                  'Cookpilot',
                   style: TextStyle(
                     fontSize: isSmallScreen ? 16 : 20,
                     fontWeight: FontWeight.w700,

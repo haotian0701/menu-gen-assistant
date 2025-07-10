@@ -357,15 +357,31 @@ class BrandSection extends StatelessWidget {
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+          width: isSmallScreen ? 32 : 40,
+          height: isSmallScreen ? 32 : 40,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E40AF),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(
-            Icons.restaurant,
-            color: Colors.white,
-            size: isSmallScreen ? 16 : 20,
+          child: Image.asset(
+            'assets/images/app_icon.png',
+            width: isSmallScreen ? 32 : 40,
+            height: isSmallScreen ? 32 : 40,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to default icon if custom icon fails to load
+              return Container(
+                padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E40AF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.restaurant,
+                  color: Colors.white,
+                  size: isSmallScreen ? 16 : 20,
+                ),
+              );
+            },
           ),
         ),
         SizedBox(width: isSmallScreen ? 8 : 12),
@@ -373,7 +389,7 @@ class BrandSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Recipe.AI',
+              'Cookpilot',
               style: TextStyle(
                 fontSize: isSmallScreen ? 16 : 20,
                 fontWeight: FontWeight.w700,

@@ -1,4 +1,4 @@
-# 🍽 Recipe.AI
+# 🍽 Cookpilot
 
 A Flutter + Supabase project that allows users to:
 
