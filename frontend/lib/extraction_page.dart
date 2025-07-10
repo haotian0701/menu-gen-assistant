@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'error_utils.dart';
@@ -258,6 +259,11 @@ class ExtractionController extends ChangeNotifier {
   String fitnessGender = 'Male';
   String fitnessGoal = 'muscle_gain';
 
+  // Validation state for fitness fields
+  String? _heightError;
+  String? _weightError;
+  String? _ageError;
+
   void setFitnessGender(String v) {
     fitnessGender = v;
     notifyListeners();
@@ -484,6 +490,54 @@ class ExtractionController extends ChangeNotifier {
   String get backendSelectedMeal => _selectedMeal;
   String get backendSelectedGoal => _selectedGoal;
   String get backendSelectedTime => _selectedTime;
+
+  // Validation getters
+  String? get heightError => _heightError;
+  String? get weightError => _weightError;
+  String? get ageError => _ageError;
+
+  // Validation methods
+  String? _validateHeight(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final height = int.tryParse(value.trim());
+    if (height == null) return 'Please enter a valid number';
+    if (height < 50 || height > 250) return 'Height must be between 50-250 cm';
+    return null;
+  }
+
+  String? _validateWeight(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final weight = int.tryParse(value.trim());
+    if (weight == null) return 'Please enter a valid number';
+    if (weight < 20 || weight > 300) return 'Weight must be between 20-300 kg';
+    return null;
+  }
+
+  String? _validateAge(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final age = int.tryParse(value.trim());
+    if (age == null) return 'Please enter a valid number';
+    if (age < 13 || age > 120) return 'Age must be between 13-120 years';
+    return null;
+  }
+
+  void validateFitnessField(String field, String value) {
+    if (_disposed) return;
+    switch (field) {
+      case 'height':
+        _heightError = _validateHeight(value);
+        break;
+      case 'weight':
+        _weightError = _validateWeight(value);
+        break;
+      case 'age':
+        _ageError = _validateAge(value);
+        break;
+    }
+    notifyListeners();
+  }
+
+  bool get hasValidationErrors => _heightError != null || _weightError != null || _ageError != null;
   // Setters
   void setSelectedMeal(String value) {
     if (_disposed) return;
@@ -1594,15 +1648,43 @@ class OptionsGrid extends StatelessWidget {
   }
 
   Widget _buildTextField(String label, TextEditingController ctrl, bool isSmallScreen) {
+    // Determine which field this is and get appropriate validation
+    String? errorText;
+    String? hintText;
+    String fieldType = '';
+    
+    if (label.contains('Height')) {
+      fieldType = 'height';
+      errorText = controller.heightError;
+      hintText = '50-250 cm';
+    } else if (label.contains('Weight')) {
+      fieldType = 'weight';
+      errorText = controller.weightError;
+      hintText = '20-300 kg';
+    } else if (label.contains('Age')) {
+      fieldType = 'age';
+      errorText = controller.ageError;
+      hintText = '13-120 years';
+    }
+
     return TextField(
       controller: ctrl,
       keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(3),
+      ],
       decoration: InputDecoration(
         labelText: label,
+        errorText: errorText,
+        hintText: hintText,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
+      onChanged: fieldType.isNotEmpty ? (value) {
+        controller.validateFitnessField(fieldType, value);
+      } : null,
     );
   }
 
@@ -1921,6 +2003,21 @@ class GenerateButton extends StatelessWidget {
   void _onGeneratePressed(BuildContext context) {
     // fitness mode
     if (controller.mode == 'fitness') {
+      // Validate fitness fields before proceeding
+      controller.validateFitnessField('height', controller.fitnessHeightCtrl.text);
+      controller.validateFitnessField('weight', controller.fitnessWeightCtrl.text);
+      controller.validateFitnessField('age', controller.fitnessAgeCtrl.text);
+      
+      if (controller.hasValidationErrors) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fix the validation errors before generating'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => GeneratingPage(

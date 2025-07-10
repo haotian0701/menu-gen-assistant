@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PreferencesPage extends StatefulWidget {
@@ -34,6 +35,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
   final ageCtrl = TextEditingController();
   final _genders = ['Male', 'Female'];
   final _fitnessGoals = ['muscle_gain', 'fat_loss', 'healthy_eating'];
+
+  // Validation state
+  String? _heightError;
+  String? _weightError;
+  String? _ageError;
 
   // Display label mappings
   static const Map<String, String> _mealTypeLabels = {
@@ -77,6 +83,39 @@ class _PreferencesPageState extends State<PreferencesPage> {
 
   List<String> _getDisplayLabels(List<String> values, Map<String, String> labelMap) {
     return values.map((value) => _getDisplayLabel(value, labelMap)).toList();
+  }
+
+  // Validation methods
+  String? _validateHeight(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final height = int.tryParse(value.trim());
+    if (height == null) return 'Please enter a valid number';
+    if (height < 50 || height > 250) return 'Height must be between 50-250 cm';
+    return null;
+  }
+
+  String? _validateWeight(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final weight = int.tryParse(value.trim());
+    if (weight == null) return 'Please enter a valid number';
+    if (weight < 20 || weight > 300) return 'Weight must be between 20-300 kg';
+    return null;
+  }
+
+  String? _validateAge(String value) {
+    if (value.trim().isEmpty) return null; // Optional field
+    final age = int.tryParse(value.trim());
+    if (age == null) return 'Please enter a valid number';
+    if (age < 13 || age > 120) return 'Age must be between 13-120 years';
+    return null;
+  }
+
+  void _validateFields() {
+    setState(() {
+      _heightError = _validateHeight(heightCtrl.text);
+      _weightError = _validateWeight(weightCtrl.text);
+      _ageError = _validateAge(ageCtrl.text);
+    });
   }
 
   // Current selections
@@ -148,6 +187,20 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   Future<void> _savePreferences() async {
+    // Validate all fields before saving
+    _validateFields();
+    
+    // Check if there are any validation errors
+    if (_heightError != null || _weightError != null || _ageError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fix the validation errors before saving'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
     if (user == null) return;
@@ -169,11 +222,25 @@ class _PreferencesPageState extends State<PreferencesPage> {
       'fitness_goal'   : _selectedFitnessGoal,
     };
 
-    await client.from('user_preferences').upsert(payload);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preferences saved')),
-      );
+    try {
+      await client.from('user_preferences').upsert(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preferences saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving preferences: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
@@ -230,19 +297,58 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     TextField(
                       controller: heightCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Height (cm)'),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'Height (cm)',
+                        errorText: _heightError,
+                        hintText: '50-250 cm',
+                      ),
+                      onChanged: (_) {
+                        setState(() {
+                          _heightError = _validateHeight(heightCtrl.text);
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: weightCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Weight (kg)'),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'Weight (kg)',
+                        errorText: _weightError,
+                        hintText: '20-300 kg',
+                      ),
+                      onChanged: (_) {
+                        setState(() {
+                          _weightError = _validateWeight(weightCtrl.text);
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: ageCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Age'),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'Age',
+                        errorText: _ageError,
+                        hintText: '13-120 years',
+                      ),
+                      onChanged: (_) {
+                        setState(() {
+                          _ageError = _validateAge(ageCtrl.text);
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     _buildDropdown('Gender', _selectedGender, _genders,
