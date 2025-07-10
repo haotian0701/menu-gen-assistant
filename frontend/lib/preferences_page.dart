@@ -9,6 +9,7 @@ class PreferencesPage extends StatefulWidget {
 }
 
 class _PreferencesPageState extends State<PreferencesPage> {
+  // Backend values - these are saved to database
   final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
@@ -33,6 +34,50 @@ class _PreferencesPageState extends State<PreferencesPage> {
   final ageCtrl = TextEditingController();
   final _genders = ['Male', 'Female'];
   final _fitnessGoals = ['muscle_gain', 'fat_loss', 'healthy_eating'];
+
+  // Display label mappings
+  static const Map<String, String> _mealTypeLabels = {
+    'general': 'Any Meal',
+    'breakfast': 'Breakfast',
+    'lunch': 'Lunch',
+    'dinner': 'Dinner',
+  };
+
+  static const Map<String, String> _dietaryGoalLabels = {
+    'normal': 'Balanced Diet',
+    'fat_loss': 'Fat Loss',
+    'muscle_gain': 'Muscle Gain',
+  };
+
+  static const Map<String, String> _mealTimeLabels = {
+    'fast': 'Quick (15-30 min)',
+    'medium': 'Medium (30-60 min)',
+    'long': 'Long (60+ min)',
+  };
+
+  static const Map<String, String> _fitnessGoalLabels = {
+    'muscle_gain': 'Muscle Gain',
+    'fat_loss': 'Fat Loss',
+    'healthy_eating': 'Healthy Eating',
+  };
+
+  // Helper methods for label conversion
+  String _getDisplayLabel(String value, Map<String, String> labelMap) {
+    return labelMap[value] ?? value;
+  }
+
+  String _getBackendValue(String displayLabel, Map<String, String> labelMap) {
+    for (var entry in labelMap.entries) {
+      if (entry.value == displayLabel) {
+        return entry.key;
+      }
+    }
+    return displayLabel;
+  }
+
+  List<String> _getDisplayLabels(List<String> values, Map<String, String> labelMap) {
+    return values.map((value) => _getDisplayLabel(value, labelMap)).toList();
+  }
 
   // Current selections
   late String _selectedMeal;
@@ -163,14 +208,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    _buildDropdown('Meal Type', _selectedMeal, _mealTypes,
-                        (v) => setState(() => _selectedMeal = v)),
+                    _buildDropdown('Meal Type', _getDisplayLabel(_selectedMeal, _mealTypeLabels), _getDisplayLabels(_mealTypes, _mealTypeLabels),
+                        (v) => setState(() => _selectedMeal = _getBackendValue(v, _mealTypeLabels))),
                     const SizedBox(height: 16),
-                    _buildDropdown('Dietary Goal', _selectedGoal, _dietaryGoals,
-                        (v) => setState(() => _selectedGoal = v)),
+                    _buildDropdown('Dietary Goal', _getDisplayLabel(_selectedGoal, _dietaryGoalLabels), _getDisplayLabels(_dietaryGoals, _dietaryGoalLabels),
+                        (v) => setState(() => _selectedGoal = _getBackendValue(v, _dietaryGoalLabels))),
                     const SizedBox(height: 16),
-                    _buildDropdown('Meal Time', _selectedTime, _mealTimeOptions,
-                        (v) => setState(() => _selectedTime = v)),
+                    _buildDropdown('Meal Time', _getDisplayLabel(_selectedTime, _mealTimeLabels), _getDisplayLabels(_mealTimeOptions, _mealTimeLabels),
+                        (v) => setState(() => _selectedTime = _getBackendValue(v, _mealTimeLabels))),
                     const SizedBox(height: 16),
                     _buildDropdown('Amount of People', _selectedPeople, _amountPeopleOptions,
                         (v) => setState(() => _selectedPeople = v)),
@@ -203,8 +248,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     _buildDropdown('Gender', _selectedGender, _genders,
                         (v) => setState(() => _selectedGender = v)),
                     const SizedBox(height: 12),
-                    _buildDropdown('Fitness Goal', _selectedFitnessGoal, _fitnessGoals,
-                        (v) => setState(() => _selectedFitnessGoal = v)),
+                    _buildDropdown('Fitness Goal', _getDisplayLabel(_selectedFitnessGoal, _fitnessGoalLabels), _getDisplayLabels(_fitnessGoals, _fitnessGoalLabels),
+                        (v) => setState(() => _selectedFitnessGoal = _getBackendValue(v, _fitnessGoalLabels))),
                     const Divider(height: 32),
                     const SizedBox(height: 24),
                     _buildDropdown('Preferred Region', _selectedRegion, _preferredRegions,

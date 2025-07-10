@@ -263,7 +263,7 @@ class ExtractionController extends ChangeNotifier {
     notifyListeners();
   }
   void setFitnessGoal(String v) {
-    fitnessGoal = v;
+    fitnessGoal = _getBackendValue(v, _fitnessGoalLabels);
     notifyListeners();
   }
   final String imageUrl;
@@ -293,7 +293,7 @@ class ExtractionController extends ChangeNotifier {
   late String _selectedPeople;
   late String _selectedDiet;
 
-  // Options for dropdowns
+  // Options for dropdowns - backend values
   final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
@@ -312,6 +312,50 @@ class ExtractionController extends ChangeNotifier {
     'Stove Top', 'Oven', 'Microwave', 'Air Fryer', 'Sous Vide Machine',
     'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
   ];
+
+  // Display label mappings
+  static const Map<String, String> _mealTypeLabels = {
+    'general': 'Any Meal',
+    'breakfast': 'Breakfast',
+    'lunch': 'Lunch',
+    'dinner': 'Dinner',
+  };
+
+  static const Map<String, String> _dietaryGoalLabels = {
+    'normal': 'Balanced Diet',
+    'fat_loss': 'Fat Loss',
+    'muscle_gain': 'Muscle Gain',
+  };
+
+  static const Map<String, String> _mealTimeLabels = {
+    'fast': 'Quick (15-30 min)',
+    'medium': 'Medium (30-60 min)',
+    'long': 'Long (60+ min)',
+  };
+
+  static const Map<String, String> _fitnessGoalLabels = {
+    'muscle_gain': 'Muscle Gain',
+    'fat_loss': 'Fat Loss',
+    'healthy_eating': 'Healthy Eating',
+  };
+
+  // Helper methods for label conversion
+  String _getDisplayLabel(String value, Map<String, String> labelMap) {
+    return labelMap[value] ?? value;
+  }
+
+  String _getBackendValue(String displayLabel, Map<String, String> labelMap) {
+    for (var entry in labelMap.entries) {
+      if (entry.value == displayLabel) {
+        return entry.key;
+      }
+    }
+    return displayLabel;
+  }
+
+  List<String> _getDisplayLabels(List<String> values, Map<String, String> labelMap) {
+    return values.map((value) => _getDisplayLabel(value, labelMap)).toList();
+  }
 
   // State for extra fields
   late String _selectedRegion;
@@ -414,14 +458,14 @@ class ExtractionController extends ChangeNotifier {
   List<Map<String, dynamic>>? get detectedItems => _detectedItems;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String get selectedMeal => _selectedMeal;
-  String get selectedGoal => _selectedGoal;
-  String get selectedTime => _selectedTime;
+  String get selectedMeal => _getDisplayLabel(_selectedMeal, _mealTypeLabels);
+  String get selectedGoal => _getDisplayLabel(_selectedGoal, _dietaryGoalLabels);
+  String get selectedTime => _getDisplayLabel(_selectedTime, _mealTimeLabels);
   String get selectedPeople => _selectedPeople;
   String get selectedDiet => _selectedDiet;
-  List<String> get mealTypes => _mealTypes;
-  List<String> get dietaryGoals => _dietaryGoals;
-  List<String> get mealTimeOptions => _mealTimeOptions;
+  List<String> get mealTypes => _getDisplayLabels(_mealTypes, _mealTypeLabels);
+  List<String> get dietaryGoals => _getDisplayLabels(_dietaryGoals, _dietaryGoalLabels);
+  List<String> get mealTimeOptions => _getDisplayLabels(_mealTimeOptions, _mealTimeLabels);
   List<String> get amountPeopleOptions => _amountPeopleOptions;
   List<String> get restrictDietOptions => _restrictDietOptions;
   bool get hasDetectedItems =>
@@ -433,22 +477,29 @@ class ExtractionController extends ChangeNotifier {
   List<String> get preferredRegions => _preferredRegions;
   List<String> get skillLevels => _skillLevels;
   List<String> get kitchenTools => _kitchenTools;
+  String get displayFitnessGoal => _getDisplayLabel(fitnessGoal, _fitnessGoalLabels);
+  List<String> get fitnessGoalOptions => _getDisplayLabels(['muscle_gain', 'fat_loss', 'healthy_eating'], _fitnessGoalLabels);
+  
+  // Backend values for API calls
+  String get backendSelectedMeal => _selectedMeal;
+  String get backendSelectedGoal => _selectedGoal;
+  String get backendSelectedTime => _selectedTime;
   // Setters
   void setSelectedMeal(String value) {
     if (_disposed) return;
-    _selectedMeal = value;
+    _selectedMeal = _getBackendValue(value, _mealTypeLabels);
     notifyListeners();
   }
 
   void setSelectedGoal(String value) {
     if (_disposed) return;
-    _selectedGoal = value;
+    _selectedGoal = _getBackendValue(value, _dietaryGoalLabels);
     notifyListeners();
   }
 
   void setSelectedTime(String value) {
     if (_disposed) return;
-    _selectedTime = value;
+    _selectedTime = _getBackendValue(value, _mealTimeLabels);
     notifyListeners();
   }
 
@@ -1465,8 +1516,8 @@ class OptionsGrid extends StatelessWidget {
               // 健身目标
               _buildDropdownField(
                 'Fitness Goal',
-                controller.fitnessGoal,
-                ['muscle_gain', 'fat_loss', 'healthy_eating'],
+                controller.displayFitnessGoal,
+                controller.fitnessGoalOptions,
                 (v) => controller.setFitnessGoal(v),
                 isSmallScreen,
               ),
@@ -1491,6 +1542,15 @@ class OptionsGrid extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: isSmallScreen ? 12 : 16),
+                Expanded(
+                  child: _buildOptionField(
+                    'Dietary Goal',
+                    controller.selectedGoal,
+                    controller.dietaryGoals,
+                    controller.setSelectedGoal,
+                    isSmallScreen,
+                  ),
+                ),
               ],
             ),
             SizedBox(height: isSmallScreen ? 16 : 20),
@@ -1865,8 +1925,8 @@ class GenerateButton extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => GeneratingPage(
             imageUrl: controller.imageUrl,
-            mealType: controller.mode == 'fitness' ? null : controller.selectedMeal,
-            dietaryGoal: controller.mode == 'fitness' ? null : controller.selectedGoal,
+            mealType: controller.mode == 'fitness' ? null : controller.backendSelectedMeal,
+            dietaryGoal: controller.mode == 'fitness' ? null : controller.backendSelectedGoal,
             mode: 'fitness',
             fitnessData: {
               'height': controller.fitnessHeightCtrl.text,
@@ -1902,9 +1962,9 @@ class GenerateButton extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => GeneratingPage(
           imageUrl: controller.imageUrl,
-          mealType: controller.selectedMeal,
-          dietaryGoal: controller.selectedGoal,
-          mealTime: controller.selectedTime,
+          mealType: controller.backendSelectedMeal,
+          dietaryGoal: controller.backendSelectedGoal,
+          mealTime: controller.backendSelectedTime,
           amountPeople: controller.selectedPeople,
           restrictDiet: controller.selectedDiet == 'None'
               ? null
