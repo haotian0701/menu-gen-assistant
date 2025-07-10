@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'error_utils.dart';
@@ -11,7 +10,6 @@ import 'error_utils.dart';
 import 'generating_page.dart';
 import 'account_icon_button.dart';
 import 'upload_page.dart';  // Add import for home page
-import 'animated_loading.dart';
 
 class ExtractionPage extends StatefulWidget {
   final String imageUrl;
@@ -81,7 +79,9 @@ class _ExtractionPageState extends State<ExtractionPage> {
   Widget build(BuildContext context) {
     if (_disposed) {
       return const Scaffold(
-        body: AnimatedLoadingWidget(type: LoadingType.loading),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 
@@ -133,9 +133,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                       child: GenerateButton(
                                         controller: _extractionController,
                                         mode: 'candidates',
-                                        label: _extractionController.mode == 'fitness' 
-                                            ? 'Generate Recipe' 
-                                            : 'Show Recipe Options',
+                                        label: 'Show Recipe Options',
                                         icon: Icons.tune,
                                         color: Color(0xFF1E40AF),
                                       ),
@@ -174,9 +172,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           child: GenerateButton(
                                             controller: _extractionController,
                                             mode: 'candidates',
-                                            label: _extractionController.mode == 'fitness' 
-                                                ? 'Generate Recipe' 
-                                                : 'Show Recipe Options',
+                                            label: 'Show Recipe Options',
                                             icon: Icons.tune,
                                             color: Color(0xFF1E40AF),
                                           ),
@@ -218,9 +214,7 @@ class _ExtractionPageState extends State<ExtractionPage> {
                                           child: GenerateButton(
                                             controller: _extractionController,
                                             mode: 'candidates',
-                                            label: _extractionController.mode == 'fitness' 
-                                                ? 'Generate Recipe' 
-                                                : 'Show Recipe Options',
+                                            label: 'Show Recipe Options',
                                             icon: Icons.tune,
                                             color: Color(0xFF1E40AF),
                                           ),
@@ -255,20 +249,16 @@ class ExtractionController extends ChangeNotifier {
   final fitnessHeightCtrl = TextEditingController();
   final fitnessWeightCtrl = TextEditingController();
   final fitnessAgeCtrl = TextEditingController();
+  final TextEditingController otherNoteCtrl = TextEditingController();
   String fitnessGender = 'Male';
   String fitnessGoal = 'muscle_gain';
-
-  // Validation state for fitness fields
-  String? _heightError;
-  String? _weightError;
-  String? _ageError;
 
   void setFitnessGender(String v) {
     fitnessGender = v;
     notifyListeners();
   }
   void setFitnessGoal(String v) {
-    fitnessGoal = _getBackendValue(v, _fitnessGoalLabels);
+    fitnessGoal = v;
     notifyListeners();
   }
   final String imageUrl;
@@ -292,13 +282,13 @@ class ExtractionController extends ChangeNotifier {
   bool _disposed = false;
 
   // State variables for dropdowns
-  String _selectedMeal = 'general';  // Initialize with defaults
-  String _selectedGoal = 'normal';
-  String _selectedTime = 'fast';
+  String _selectedMeal   = 'general';
+  String _selectedGoal   = 'normal';
+  String _selectedTime   = 'fast';
   String _selectedPeople = '1';
-  String _selectedDiet = 'None';
+  String _selectedDiet   = 'None';
 
-  // Options for dropdowns - backend values
+  // Options for dropdowns
   final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
   final _dietaryGoals = ['normal', 'fat_loss', 'muscle_gain'];
   final _mealTimeOptions = ['fast', 'medium', 'long'];
@@ -318,54 +308,10 @@ class ExtractionController extends ChangeNotifier {
     'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
   ];
 
-  // Display label mappings
-  static const Map<String, String> _mealTypeLabels = {
-    'general': 'Any Meal',
-    'breakfast': 'Breakfast',
-    'lunch': 'Lunch',
-    'dinner': 'Dinner',
-  };
-
-  static const Map<String, String> _dietaryGoalLabels = {
-    'normal': 'Balanced Diet',
-    'fat_loss': 'Fat Loss',
-    'muscle_gain': 'Muscle Gain',
-  };
-
-  static const Map<String, String> _mealTimeLabels = {
-    'fast': 'Quick (15-30 min)',
-    'medium': 'Medium (30-60 min)',
-    'long': 'Long (60+ min)',
-  };
-
-  static const Map<String, String> _fitnessGoalLabels = {
-    'muscle_gain': 'Muscle Gain',
-    'fat_loss': 'Fat Loss',
-    'healthy_eating': 'Healthy Eating',
-  };
-
-  // Helper methods for label conversion
-  String _getDisplayLabel(String value, Map<String, String> labelMap) {
-    return labelMap[value] ?? value;
-  }
-
-  String _getBackendValue(String displayLabel, Map<String, String> labelMap) {
-    for (var entry in labelMap.entries) {
-      if (entry.value == displayLabel) {
-        return entry.key;
-      }
-    }
-    return displayLabel;
-  }
-
-  List<String> _getDisplayLabels(List<String> values, Map<String, String> labelMap) {
-    return values.map((value) => _getDisplayLabel(value, labelMap)).toList();
-  }
-
   // State for extra fields
-  String _selectedRegion = 'Any';  // Initialize with defaults
-  String _selectedSkill = 'Beginner';
-  Set<String> _selectedKitchenTools = {'Stove Top', 'Oven'};
+  String _selectedRegion = 'Any';
+  String _selectedSkill  = 'Beginner';
+  Set<String> _selectedKitchenTools = {};
 
   ExtractionController({
     required this.imageUrl,
@@ -422,13 +368,9 @@ class ExtractionController extends ChangeNotifier {
     }
 
     // Fitness mode preferences
-    final heightValue = prefs['height_cm'];
-    final weightValue = prefs['weight_kg'];
-    final ageValue = prefs['age'];
-    
-    fitnessHeightCtrl.text = (heightValue != null && heightValue != 0) ? heightValue.toString() : '';
-    fitnessWeightCtrl.text = (weightValue != null && weightValue != 0) ? weightValue.toString() : '';
-    fitnessAgeCtrl.text = (ageValue != null && ageValue != 0) ? ageValue.toString() : '';
+    fitnessHeightCtrl.text = (prefs['height_cm'] ?? '').toString();
+    fitnessWeightCtrl.text = (prefs['weight_kg'] ?? '').toString();
+    fitnessAgeCtrl.text = (prefs['age'] ?? '').toString();
     fitnessGender = prefs['gender'] ?? 'Male';
     fitnessGoal = prefs['fitness_goal'] ?? 'muscle_gain';
 
@@ -467,14 +409,14 @@ class ExtractionController extends ChangeNotifier {
   List<Map<String, dynamic>>? get detectedItems => _detectedItems;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String get selectedMeal => _getDisplayLabel(_selectedMeal, _mealTypeLabels);
-  String get selectedGoal => _getDisplayLabel(_selectedGoal, _dietaryGoalLabels);
-  String get selectedTime => _getDisplayLabel(_selectedTime, _mealTimeLabels);
+  String get selectedMeal => _selectedMeal;
+  String get selectedGoal => _selectedGoal;
+  String get selectedTime => _selectedTime;
   String get selectedPeople => _selectedPeople;
   String get selectedDiet => _selectedDiet;
-  List<String> get mealTypes => _getDisplayLabels(_mealTypes, _mealTypeLabels);
-  List<String> get dietaryGoals => _getDisplayLabels(_dietaryGoals, _dietaryGoalLabels);
-  List<String> get mealTimeOptions => _getDisplayLabels(_mealTimeOptions, _mealTimeLabels);
+  List<String> get mealTypes => _mealTypes;
+  List<String> get dietaryGoals => _dietaryGoals;
+  List<String> get mealTimeOptions => _mealTimeOptions;
   List<String> get amountPeopleOptions => _amountPeopleOptions;
   List<String> get restrictDietOptions => _restrictDietOptions;
   bool get hasDetectedItems =>
@@ -486,77 +428,22 @@ class ExtractionController extends ChangeNotifier {
   List<String> get preferredRegions => _preferredRegions;
   List<String> get skillLevels => _skillLevels;
   List<String> get kitchenTools => _kitchenTools;
-  String get displayFitnessGoal => _getDisplayLabel(fitnessGoal, _fitnessGoalLabels);
-  List<String> get fitnessGoalOptions => _getDisplayLabels(['muscle_gain', 'fat_loss', 'healthy_eating'], _fitnessGoalLabels);
-  
-  // Backend values for API calls
-  String get backendSelectedMeal => _selectedMeal;
-  String get backendSelectedGoal => _selectedGoal;
-  String get backendSelectedTime => _selectedTime;
-
-  // Validation getters
-  String? get heightError => _heightError;
-  String? get weightError => _weightError;
-  String? get ageError => _ageError;
-
-  // Validation methods
-  String? _validateHeight(String value) {
-    if (value.trim().isEmpty) return null; // Optional field
-    final height = int.tryParse(value.trim());
-    if (height == null) return 'Please enter a valid number';
-    if (height < 50 || height > 250) return 'Height must be between 50-250 cm';
-    return null;
-  }
-
-  String? _validateWeight(String value) {
-    if (value.trim().isEmpty) return null; // Optional field
-    final weight = int.tryParse(value.trim());
-    if (weight == null) return 'Please enter a valid number';
-    if (weight < 20 || weight > 300) return 'Weight must be between 20-300 kg';
-    return null;
-  }
-
-  String? _validateAge(String value) {
-    if (value.trim().isEmpty) return null; // Optional field
-    final age = int.tryParse(value.trim());
-    if (age == null) return 'Please enter a valid number';
-    if (age < 13 || age > 120) return 'Age must be between 13-120 years';
-    return null;
-  }
-
-  void validateFitnessField(String field, String value) {
-    if (_disposed) return;
-    switch (field) {
-      case 'height':
-        _heightError = _validateHeight(value);
-        break;
-      case 'weight':
-        _weightError = _validateWeight(value);
-        break;
-      case 'age':
-        _ageError = _validateAge(value);
-        break;
-    }
-    notifyListeners();
-  }
-
-  bool get hasValidationErrors => _heightError != null || _weightError != null || _ageError != null;
   // Setters
   void setSelectedMeal(String value) {
     if (_disposed) return;
-    _selectedMeal = _getBackendValue(value, _mealTypeLabels);
+    _selectedMeal = value;
     notifyListeners();
   }
 
   void setSelectedGoal(String value) {
     if (_disposed) return;
-    _selectedGoal = _getBackendValue(value, _dietaryGoalLabels);
+    _selectedGoal = value;
     notifyListeners();
   }
 
   void setSelectedTime(String value) {
     if (_disposed) return;
-    _selectedTime = _getBackendValue(value, _mealTimeLabels);
+    _selectedTime = value;
     notifyListeners();
   }
 
@@ -638,6 +525,7 @@ class ExtractionController extends ChangeNotifier {
               'preferred_region': _selectedRegion,
               'skill_level': _selectedSkill,
               'kitchen_tools': _selectedKitchenTools.toList(),
+              'stage': 'candidates',  
             }),
           )
           .timeout(const Duration(seconds: 60));
@@ -713,6 +601,7 @@ class ExtractionController extends ChangeNotifier {
     fitnessHeightCtrl.dispose();
     fitnessWeightCtrl.dispose();
     fitnessAgeCtrl.dispose();
+    otherNoteCtrl.dispose();
     _disposed = true;
     super.dispose();
   }
@@ -799,38 +688,22 @@ class BrandSection extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: isSmallScreen ? 32 : 40,
-              height: isSmallScreen ? 32 : 40,
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
               decoration: BoxDecoration(
+                color: const Color(0xFF1E40AF),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Image.asset(
-                'assets/images/app_icon.png',
-                width: isSmallScreen ? 32 : 40,
-                height: isSmallScreen ? 32 : 40,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback to default icon if custom icon fails to load
-                  return Container(
-                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E40AF),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(
-                      Icons.restaurant,
-                      color: Colors.white,
-                      size: isSmallScreen ? 16 : 20,
-                    ),
-                  );
-                },
+              child: Icon(
+                Icons.restaurant,
+                color: Colors.white,
+                size: isSmallScreen ? 16 : 20,
               ),
             ),
             SizedBox(width: isSmallScreen ? 8 : 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Cookpilot', style: TextStyle(fontSize: isSmallScreen ? 16 : 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: -0.5)),
+                Text('Recipe.AI', style: TextStyle(fontSize: isSmallScreen ? 16 : 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: -0.5)),
                 if (!isSmallScreen)
                   const Text('AI-Powered Recipe Generator', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w400)),
               ],
@@ -999,9 +872,21 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AnimatedLoadingWidget(
-      type: LoadingType.analyzing,
-      customMessage: "🔍 Detecting ingredients in your photo...",
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'Detecting ingredients...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1105,7 +990,7 @@ class _ImageDisplay extends StatelessWidget {
               );
             }
             if (!snap.hasData) {
-              return const AnimatedLoadingWidget(type: LoadingType.analyzing);
+              return const Center(child: CircularProgressIndicator());
             }
 
             final imgSize = snap.data!;
@@ -1535,21 +1420,16 @@ class OptionsGrid extends StatelessWidget {
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 800;
         final mode = controller.mode;
-        // 健身模式
         if (mode == 'fitness') {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 身高
               _buildTextField('Height (cm)', controller.fitnessHeightCtrl, isSmallScreen),
               const SizedBox(height: 16),
-              // 体重
               _buildTextField('Weight (kg)', controller.fitnessWeightCtrl, isSmallScreen),
               const SizedBox(height: 16),
-              // 年龄
               _buildTextField('Age', controller.fitnessAgeCtrl, isSmallScreen),
               const SizedBox(height: 16),
-              // 性别
               _buildDropdownField(
                 'Gender',
                 controller.fitnessGender,
@@ -1558,16 +1438,14 @@ class OptionsGrid extends StatelessWidget {
                 isSmallScreen,
               ),
               const SizedBox(height: 16),
-              // 健身目标
               _buildDropdownField(
                 'Fitness Goal',
-                controller.displayFitnessGoal,
-                controller.fitnessGoalOptions,
+                controller.fitnessGoal,
+                ['muscle_gain', 'fat_loss', 'healthy_eating'],
                 (v) => controller.setFitnessGoal(v),
                 isSmallScreen,
               ),
               const SizedBox(height: 16),
-              // 展开更多按钮 & 高级选项
               _AdvancedOptions(controller: controller, isSmallScreen: isSmallScreen),
             ],
           );
@@ -1587,15 +1465,6 @@ class OptionsGrid extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: isSmallScreen ? 12 : 16),
-                Expanded(
-                  child: _buildOptionField(
-                    'Dietary Goal',
-                    controller.selectedGoal,
-                    controller.dietaryGoals,
-                    controller.setSelectedGoal,
-                    isSmallScreen,
-                  ),
-                ),
               ],
             ),
             SizedBox(height: isSmallScreen ? 16 : 20),
@@ -1639,43 +1508,15 @@ class OptionsGrid extends StatelessWidget {
   }
 
   Widget _buildTextField(String label, TextEditingController ctrl, bool isSmallScreen) {
-    // Determine which field this is and get appropriate validation
-    String? errorText;
-    String? hintText;
-    String fieldType = '';
-    
-    if (label.contains('Height')) {
-      fieldType = 'height';
-      errorText = controller.heightError;
-      hintText = '50-250 cm';
-    } else if (label.contains('Weight')) {
-      fieldType = 'weight';
-      errorText = controller.weightError;
-      hintText = '20-300 kg';
-    } else if (label.contains('Age')) {
-      fieldType = 'age';
-      errorText = controller.ageError;
-      hintText = '13-120 years';
-    }
-
     return TextField(
       controller: ctrl,
       keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(3),
-      ],
       decoration: InputDecoration(
         labelText: label,
-        errorText: errorText,
-        hintText: hintText,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
-      onChanged: fieldType.isNotEmpty ? (value) {
-        controller.validateFitnessField(fieldType, value);
-      } : null,
     );
   }
 
@@ -1903,6 +1744,18 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
               );
             },
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller.otherNoteCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: 'Additional Notes (optional)',
+              hintText: 'e.g. no cilantro, extra spicy, avoid nuts...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
+          ),
         ],
       ],
     );
@@ -1994,27 +1847,12 @@ class GenerateButton extends StatelessWidget {
   void _onGeneratePressed(BuildContext context) {
     // fitness mode
     if (controller.mode == 'fitness') {
-      // Validate fitness fields before proceeding
-      controller.validateFitnessField('height', controller.fitnessHeightCtrl.text);
-      controller.validateFitnessField('weight', controller.fitnessWeightCtrl.text);
-      controller.validateFitnessField('age', controller.fitnessAgeCtrl.text);
-      
-      if (controller.hasValidationErrors) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fix the validation errors before generating'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => GeneratingPage(
             imageUrl: controller.imageUrl,
-            mealType: controller.mode == 'fitness' ? null : controller.backendSelectedMeal,
-            dietaryGoal: controller.mode == 'fitness' ? null : controller.backendSelectedGoal,
+            mealType: controller.mode == 'fitness' ? null : controller.selectedMeal,
+            dietaryGoal: controller.mode == 'fitness' ? null : controller.selectedGoal,
             mode: 'fitness',
             fitnessData: {
               'height': controller.fitnessHeightCtrl.text,
@@ -2027,6 +1865,7 @@ class GenerateButton extends StatelessWidget {
             preferredRegion: controller.selectedRegion,
             skillLevel: controller.selectedSkill,
             kitchenTools: controller.selectedKitchenTools.toList(),
+            
             manualLabels: controller.detectedItems,
           ),
         ),
@@ -2050,9 +1889,9 @@ class GenerateButton extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => GeneratingPage(
           imageUrl: controller.imageUrl,
-          mealType: controller.backendSelectedMeal,
-          dietaryGoal: controller.backendSelectedGoal,
-          mealTime: controller.backendSelectedTime,
+          mealType: controller.selectedMeal,
+          dietaryGoal: controller.selectedGoal,
+          mealTime: controller.selectedTime,
           amountPeople: controller.selectedPeople,
           restrictDiet: controller.selectedDiet == 'None'
               ? null
@@ -2060,6 +1899,7 @@ class GenerateButton extends StatelessWidget {
           preferredRegion: controller.selectedRegion,
           skillLevel: controller.selectedSkill,
           kitchenTools: controller.selectedKitchenTools.toList(),
+          otherNote: controller.otherNoteCtrl.text.trim(),
           manualLabels: labels,
           mode: mode, 
         ),

@@ -252,7 +252,7 @@ serve(async (req)=>{
   try {
     const body = await req.json();
     // Ensure all relevant fields from the body are destructured
-    const { user_id, image_url, meal_type = "", dietary_goal = "normal", mode, manual_labels, restrict_diet, amount_people, meal_time, selected_title, stage, preferred_region, skill_level, kitchen_tools, client_image_url, height_cm, weight_kg, gender, age, fitness_goal } = body;
+    const { user_id, image_url, meal_type = "", dietary_goal = "normal", mode, manual_labels, restrict_diet, amount_people, meal_time, selected_title, stage, preferred_region, skill_level, kitchen_tools, client_image_url, height_cm, weight_kg, gender, age, fitness_goal, other_note = "" } = body;
     // ─── Option Whitelist Validation ──────────────────────
     const invalidMsgs = [];
     if (meal_type && !MEAL_TYPES.includes(meal_type)) invalidMsgs.push(`meal_type '${meal_type}'`);
@@ -272,6 +272,12 @@ serve(async (req)=>{
         if (item_label && !LABEL_REGEX.test(item_label)) invalidMsgs.push(`item_label '${item_label}'`);
         if (additional_info && !LABEL_REGEX.test(additional_info)) invalidMsgs.push(`additional_info '${additional_info}'`);
       }
+    }
+    if (other_note && typeof other_note !== 'string') {
+      invalidMsgs.push(`other_note must be a string`);
+    }
+    if (other_note && other_note.length > 200) {
+      invalidMsgs.push(`other_note is too long (max 200 chars)`);
     }
     if (invalidMsgs.length) {
       return respondError(400, `Invalid input for: ${invalidMsgs.join(', ')}`, true);
@@ -441,6 +447,7 @@ Instructions:
     - Gender: ${gender || 'not specified'}
     - Age: ${age || 'not specified'}
     - Goal: ${fitness_goal === 'fat_loss' ? 'fat loss' : fitness_goal === 'muscle_gain' ? 'muscle gain' : 'healthy eating'}
+    ${other_note && other_note.trim() ? `- Additional Notes: ${other_note.trim()}` : ``}
 
     Goal meanings:
     - "muscle gain": maximize protein and calories for muscle growth.
@@ -585,6 +592,7 @@ Instructions:
           skill_level,
           kitchen_tools,
           nutrition_info,
+          other_note,
         });
       }
       return new Response(JSON.stringify({
@@ -596,7 +604,8 @@ Instructions:
           "fitness",
           fitness_goal
         ],
-        nutrition_info
+        nutrition_info,
+        other_note
       }), {
         status: 200,
         headers: {
@@ -642,6 +651,7 @@ Instructions:
     - Preferred Region: ${preferred_region || 'Any'}
     - Skill Level: ${skill_level || 'Beginner'}
     - Kitchen Tools Available: ${Array.isArray(kitchen_tools) && kitchen_tools.length > 0 ? kitchen_tools.join(", ") : "Any"}
+    - Additional Notes: ${other_note}
     Your task: Suggest exactly 3 RECIPE IDEAS that satisfy **all** the constraints above.
     • If a *Strict Dietary Restriction* is provided (e.g. "Vegan", "Gluten-free"), every candidate MUST comply with it; do NOT suggest dishes that inherently violate the restriction.
     • The *Dietary Goal* (fat_loss / muscle_gain / normal) should be reflected in the kind of dish you propose.
@@ -765,6 +775,7 @@ ${restrict_diet && restrict_diet.trim() !== "" ? `- **Strict Dietary Restriction
 - **Preferred Region/Cuisine:** ${preferred_region || 'Any'}
 - **Skill Level:** ${skill_level || 'Beginner'}
 - **Kitchen Tools Available:** ${Array.isArray(kitchen_tools) && kitchen_tools.length > 0 ? kitchen_tools.join(", ") : "Any"}
+${other_note && other_note.trim() ? `- **Additional Notes:** ${other_note.trim()}` : ``}
 **Output Format Instructions:**
 Format the entire response as a single block of valid HTML. Do NOT include \`\`\`html fences or any text outside the HTML structure.
 The HTML should include:
@@ -917,7 +928,8 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
         tags: categories,
         preferred_region,
         skill_level,
-        kitchen_tools
+        kitchen_tools,
+        other_note, 
       });
     }
     return new Response(JSON.stringify({
@@ -925,7 +937,8 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
       recipe: recipeHtml,
       video_url,
       categories,
-      main_image_url
+      main_image_url,
+      other_note
     }), {
       status: 200,
       headers: {

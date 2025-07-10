@@ -21,6 +21,7 @@ class GeneratingPage extends StatefulWidget {
   final String? mode;
   final String? preferredRegion;
   final String? skillLevel;
+  final String? otherNote;
   final List<String>? kitchenTools;
   final List<Map<String, dynamic>>? manualLabels;
   final Map<String, dynamic>? fitnessData;
@@ -41,6 +42,7 @@ class GeneratingPage extends StatefulWidget {
     this.mode,
     this.fitnessData, 
     this.nutritionInfo,
+    this.otherNote,
   });
 
   @override
