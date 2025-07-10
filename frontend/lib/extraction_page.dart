@@ -329,37 +329,53 @@ class ExtractionController extends ChangeNotifier {
     _initializeState();
   }
 
-  void _initializeState() {
+  void _initializeState() async {
+    final prefs = await _loadUserPreferences();
+
     // Initialize selected options
     _selectedMeal = (initialMealType != null && _mealTypes.contains(initialMealType))
         ? initialMealType!
-        : _mealTypes.first;
+        : (prefs['meal_type'] ?? _mealTypes.first);
 
     _selectedGoal = (initialDietaryGoal != null && _dietaryGoals.contains(initialDietaryGoal))
         ? initialDietaryGoal!
-        : _dietaryGoals.first;
+        : (prefs['dietary_goal'] ?? _dietaryGoals.first);
 
     _selectedTime = (initialMealTime != null && _mealTimeOptions.contains(initialMealTime))
         ? initialMealTime!
-        : _mealTimeOptions.first;
+        : (prefs['meal_time'] ?? _mealTimeOptions.first);
 
     _selectedPeople = (initialAmountPeople != null && _amountPeopleOptions.contains(initialAmountPeople))
         ? initialAmountPeople!
-        : _amountPeopleOptions.first;
+        : (prefs['amount_people'] ?? _amountPeopleOptions.first);
 
     if (initialRestrictDiet != null &&
         initialRestrictDiet!.isNotEmpty &&
         _restrictDietOptions.contains(initialRestrictDiet)) {
       _selectedDiet = initialRestrictDiet!;
     } else {
-      _selectedDiet = 'None';
+      _selectedDiet = prefs['restrict_diet'] ?? 'None';
     }
-    _selectedRegion = initialPreferredRegion ?? _preferredRegions.first;
-    _selectedSkill = initialSkillLevel ?? _skillLevels.first;
-    // Default to common basic tools when no list provided
-    _selectedKitchenTools = initialKitchenTools != null
-        ? Set<String>.from(initialKitchenTools!)
-        : {'Stove Top', 'Oven'};
+    _selectedRegion = initialPreferredRegion ?? prefs['preferred_region'] ?? _preferredRegions.first;
+    _selectedSkill = initialSkillLevel ?? prefs['skill_level'] ?? _skillLevels.first;
+    
+    if (initialKitchenTools != null) {
+      _selectedKitchenTools = Set<String>.from(initialKitchenTools!);
+    } else {
+      final tools = (prefs['kitchen_tools'] as List?)?.cast<String>() ?? [];
+      _selectedKitchenTools = tools.isNotEmpty ? tools.toSet() : {'Stove Top', 'Oven'};
+    }
+
+    // Fitness mode preferences
+    fitnessHeightCtrl.text = (prefs['height_cm'] ?? '').toString();
+    fitnessWeightCtrl.text = (prefs['weight_kg'] ?? '').toString();
+    fitnessAgeCtrl.text = (prefs['age'] ?? '').toString();
+    fitnessGender = prefs['gender'] ?? 'Male';
+    fitnessGoal = prefs['fitness_goal'] ?? 'muscle gain';
+
+    if (!_disposed) {
+      notifyListeners();
+    }
 
     if (isRegenerating &&
         initialDetectedItems != null &&
@@ -367,10 +383,24 @@ class ExtractionController extends ChangeNotifier {
       _detectedItems = List<Map<String, dynamic>>.from(
           initialDetectedItems!.map((item) => Map<String, dynamic>.from(item)));
       _isLoading = false;
+      if (!_disposed) notifyListeners();
     } else {
       _fetchDetectedItems();
-
     }
+  }
+
+  Future<Map<String, dynamic>> _loadUserPreferences() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) return {};
+
+    final data = await client
+        .from('user_preferences')
+        .select()
+        .eq('user_id', user.id)
+        .maybeSingle();
+    
+    return data ?? {};
   }
 
 
@@ -1045,7 +1075,7 @@ class _ImageDisplay extends StatelessWidget {
       ));
       stream.removeListener(l); // Prevent memory leak
     }, onError: (err, _) {
-      completer.completeError(err ?? 'Image load error');
+      completer.completeError(err);
       stream.removeListener(l);
     });
     stream.addListener(l);
@@ -1414,7 +1444,7 @@ class OptionsGrid extends StatelessWidget {
               _buildDropdownField(
                 'Fitness Goal',
                 controller.fitnessGoal,
-                ['muscle gain', 'fat_loss', 'healthy eating'],
+                ['muscle_gain', 'fat_loss', 'healthy_eating'],
                 (v) => controller.setFitnessGoal(v),
                 isSmallScreen,
               ),
@@ -1606,7 +1636,7 @@ class _AdvancedOptions extends StatefulWidget {
 
 class _AdvancedOptionsState extends State<_AdvancedOptions> {
   bool _show = false;
-  @override
+  
   Widget _buildOptionField(
     String label,
     String currentValue,
@@ -1660,9 +1690,6 @@ class _AdvancedOptionsState extends State<_AdvancedOptions> {
     final controller = widget.controller;
     final isSmallScreen = widget.isSmallScreen;
     final tools = controller.kitchenTools;
-    final half = (tools.length / 2).ceil();
-    final left = tools.take(half).toList();
-    final right = tools.skip(half).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
