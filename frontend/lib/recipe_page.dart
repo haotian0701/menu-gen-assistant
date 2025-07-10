@@ -102,6 +102,18 @@ class NutritionPieChart extends StatelessWidget {
 // HELPER FUNCTIONS
 // =============================================================================
 
+bool _hasValidNutritionData(Map<String, double>? nutritionInfo) {
+  if (nutritionInfo == null) return false;
+  
+  // Check if any of the main nutrition values are greater than 0
+  final protein = nutritionInfo['protein'] ?? 0;
+  final carbs = nutritionInfo['carbs'] ?? 0;
+  final fat = nutritionInfo['fat'] ?? 0;
+  final calories = nutritionInfo['calories'] ?? 0;
+  
+  return protein > 0 || carbs > 0 || fat > 0 || calories > 0;
+}
+
 String _extractTitle(String html) {
   final match =
       RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false).firstMatch(html);
@@ -579,7 +591,7 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null)
+                  if (isFitnessMode == true && _hasValidNutritionData(nutritionInfo))
                     NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(
                     pageTitle: pageTitle,
@@ -679,7 +691,7 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   RecipeContent(recipe: recipe),
-                  if (nutritionInfo != null)
+                  if (isFitnessMode == true && _hasValidNutritionData(nutritionInfo))
                     NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(
                     pageTitle: pageTitle,

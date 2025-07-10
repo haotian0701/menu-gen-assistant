@@ -293,11 +293,11 @@ class ExtractionController extends ChangeNotifier {
   bool _disposed = false;
 
   // State variables for dropdowns
-  late String _selectedMeal;
-  late String _selectedGoal;
-  late String _selectedTime;
-  late String _selectedPeople;
-  late String _selectedDiet;
+  String _selectedMeal = 'general';  // Initialize with defaults
+  String _selectedGoal = 'normal';
+  String _selectedTime = 'fast';
+  String _selectedPeople = '1';
+  String _selectedDiet = 'None';
 
   // Options for dropdowns - backend values
   final _mealTypes = ['general', 'breakfast', 'lunch', 'dinner'];
@@ -364,9 +364,9 @@ class ExtractionController extends ChangeNotifier {
   }
 
   // State for extra fields
-  late String _selectedRegion;
-  late String _selectedSkill;
-  late Set<String> _selectedKitchenTools;
+  String _selectedRegion = 'Any';  // Initialize with defaults
+  String _selectedSkill = 'Beginner';
+  Set<String> _selectedKitchenTools = {'Stove Top', 'Oven'};
 
   ExtractionController({
     required this.imageUrl,
@@ -423,9 +423,13 @@ class ExtractionController extends ChangeNotifier {
     }
 
     // Fitness mode preferences
-    fitnessHeightCtrl.text = (prefs['height_cm'] ?? '').toString();
-    fitnessWeightCtrl.text = (prefs['weight_kg'] ?? '').toString();
-    fitnessAgeCtrl.text = (prefs['age'] ?? '').toString();
+    final heightValue = prefs['height_cm'];
+    final weightValue = prefs['weight_kg'];
+    final ageValue = prefs['age'];
+    
+    fitnessHeightCtrl.text = (heightValue != null && heightValue != 0) ? heightValue.toString() : '';
+    fitnessWeightCtrl.text = (weightValue != null && weightValue != 0) ? weightValue.toString() : '';
+    fitnessAgeCtrl.text = (ageValue != null && ageValue != 0) ? ageValue.toString() : '';
     fitnessGender = prefs['gender'] ?? 'Male';
     fitnessGoal = prefs['fitness_goal'] ?? 'muscle_gain';
 
