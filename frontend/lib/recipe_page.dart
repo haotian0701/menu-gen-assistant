@@ -192,6 +192,7 @@ class _RecipePageState extends State<RecipePage> {
                           restrictDiet: widget.restrictDiet,
                           mainImageUrl: widget.mainImageUrl,
                           nutritionInfo: widget.nutritionInfo,
+                          isFitnessMode: widget.isFitnessMode,
                         ),
                       ),
                     ),
@@ -400,6 +401,7 @@ class RecipeSection extends StatelessWidget {
   final String restrictDiet;
   final String? mainImageUrl;
   final Map<String, double>? nutritionInfo;
+  final bool? isFitnessMode;
 
   const RecipeSection({
     super.key,
@@ -415,6 +417,7 @@ class RecipeSection extends StatelessWidget {
     required this.restrictDiet,
     this.mainImageUrl,
     this.nutritionInfo,
+    this.isFitnessMode,
   });
 
   @override
@@ -505,28 +508,7 @@ class RecipeSection extends StatelessWidget {
                     ),
                   RecipeContent(recipe: recipe),
                   if (nutritionInfo != null)
-                    Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Nutritional Breakdown',
-                                style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 180,
-                              child: NutritionPieChart(data: nutritionInfo!),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
+                    NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(
                     pageTitle: pageTitle,
                     recipe: recipe,
@@ -538,6 +520,8 @@ class RecipeSection extends StatelessWidget {
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
                     mainImageUrl: mainImageUrl,
+                    isFitnessMode: isFitnessMode,
+                    nutritionInfo: nutritionInfo,
                   ),
                 ],
               ),
@@ -624,27 +608,7 @@ class RecipeSection extends StatelessWidget {
                     ),
                   RecipeContent(recipe: recipe),
                   if (nutritionInfo != null)
-                    Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Nutritional Breakdown',
-                                style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 180,
-                              child: NutritionPieChart(data: nutritionInfo!),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(
                     pageTitle: pageTitle,
                     recipe: recipe,
@@ -656,6 +620,8 @@ class RecipeSection extends StatelessWidget {
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
                     mainImageUrl: mainImageUrl,
+                    isFitnessMode: isFitnessMode,
+                    nutritionInfo: nutritionInfo,
                   ),
                 ],
               ),
@@ -892,6 +858,8 @@ class ActionButtons extends StatelessWidget {
   final String amountPeople;
   final String restrictDiet;
   final String? mainImageUrl;
+  final bool? isFitnessMode;
+  final Map<String, double>? nutritionInfo;
 
   const ActionButtons({
     super.key,
@@ -905,6 +873,8 @@ class ActionButtons extends StatelessWidget {
     required this.amountPeople,
     required this.restrictDiet,
     this.mainImageUrl,
+    this.isFitnessMode,
+    this.nutritionInfo,
   });
 
   @override
@@ -1225,6 +1195,8 @@ class ActionButtons extends StatelessWidget {
         'meal_time': mealTime,
         'amount_people': amountPeople,
         'restrict_diet': restrictDiet,
+        'is_fitness_mode': isFitnessMode ?? false,
+        'nutrition_info': nutritionInfo,
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1267,6 +1239,39 @@ class ActionButtons extends StatelessWidget {
           amountPeople: amountPeople,
           restrictDiet: restrictDiet,
           mode: 'candidates',
+        ),
+      ),
+    );
+  }
+}
+
+class NutritionChartCard extends StatelessWidget {
+  final Map<String, double> nutritionInfo;
+
+  const NutritionChartCard({
+    super.key,
+    required this.nutritionInfo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nutritional Breakdown',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 180,
+              child: NutritionPieChart(data: nutritionInfo),
+            ),
+          ],
         ),
       ),
     );

@@ -180,6 +180,13 @@ class _HistoryPageState extends State<HistoryPage> {
               final mealTime = rec['meal_time'] as String? ?? '';
               final amountPeople = rec['amount_people'] as String? ?? '';
               final restrictDiet = rec['restrict_diet'] as String? ?? '';
+              final isFitnessMode = rec['is_fitness_mode'] as bool? ?? false;
+              final nutritionInfo = rec['nutrition_info'] != null
+                  ? (rec['nutrition_info'] as Map<String, dynamic>).map(
+                      (key, value) => MapEntry(key, (value as num).toDouble()),
+                    )
+                  : null;
+
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => RecipePage(
@@ -187,11 +194,13 @@ class _HistoryPageState extends State<HistoryPage> {
                     mainImageUrl: previewUrl,
                     recipe: recipeHtml,
                     detectedItems: items,
-                    mealType: rec['meal_type'] as String,
-                    dietaryGoal: rec['dietary_goal'] as String,
+                    mealType: rec['meal_type'] as String? ?? '',
+                    dietaryGoal: rec['dietary_goal'] as String? ?? '',
                     mealTime: mealTime,
                     amountPeople: amountPeople,
                     restrictDiet: restrictDiet,
+                    isFitnessMode: isFitnessMode,
+                    nutritionInfo: nutritionInfo,
                     onBack: () => Navigator.of(context).pop(),
                   ),
                 ),

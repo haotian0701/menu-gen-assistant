@@ -250,7 +250,7 @@ class ExtractionController extends ChangeNotifier {
   final fitnessWeightCtrl = TextEditingController();
   final fitnessAgeCtrl = TextEditingController();
   String fitnessGender = 'Male';
-  String fitnessGoal = 'muscle gain';
+  String fitnessGoal = 'muscle_gain';
 
   void setFitnessGender(String v) {
     fitnessGender = v;
@@ -371,7 +371,7 @@ class ExtractionController extends ChangeNotifier {
     fitnessWeightCtrl.text = (prefs['weight_kg'] ?? '').toString();
     fitnessAgeCtrl.text = (prefs['age'] ?? '').toString();
     fitnessGender = prefs['gender'] ?? 'Male';
-    fitnessGoal = prefs['fitness_goal'] ?? 'muscle gain';
+    fitnessGoal = prefs['fitness_goal'] ?? 'muscle_gain';
 
     if (!_disposed) {
       notifyListeners();
