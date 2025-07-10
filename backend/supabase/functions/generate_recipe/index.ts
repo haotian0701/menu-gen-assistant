@@ -441,7 +441,7 @@ Instructions:
     - Gender: ${gender || 'not specified'}
     - Age: ${age || 'not specified'}
     - Goal: ${fitness_goal === 'fat_loss' ? 'fat loss' : fitness_goal === 'muscle_gain' ? 'muscle gain' : 'healthy eating'}
-    
+
     Goal meanings:
     - "muscle gain": maximize protein and calories for muscle growth.
     - "fat loss": low calorie, high protein, high volume, filling but low in fat and sugar.
@@ -457,11 +457,13 @@ Instructions:
       - <ul>
       - <h2> Instructions
       - <ol>
-      - <h2> Nutritional Analysis
-      - <p> Estimated calories, protein, carbs, fat per portion.
       - <h2> Fitness Explanation
       - <p> Why this recipe matches (or does not match) the fitness goal. Clearly explain what is missing if the result is not ideal.
-    `.trim();
+      - <h2> Nutritional Analysis
+      - <p> Estimated calories, protein, carbs, fat per portion.
+
+    After the HTML recipe above, append the JSON object {"nutrition_info":{"calories":number,"protein":number,"carbs":number,"fat":number}} immediately after the HTML without any code fences. Ensure the values in this JSON match the nutritional analysis in the HTML, and return only the HTML recipe followed by the JSON object.
+`.trim();
       // Gemini 
       const fitnessResp = await fetch(GEMINI_TEXT_ENDPOINT, {
         method: "POST",
@@ -495,8 +497,41 @@ Instructions:
         });
       }
       const fitnessData = await fitnessResp.json();
-      const fitnessHtml = fitnessData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate fitness recipe.</p>";
-      const nutrition_info = extractNutritionInfo(fitnessHtml);
+      // Get full response text (HTML + JSON block)
+      const fullResponse = fitnessData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate fitness recipe.</p>";
+      // Extract nutrition_info JSON (support both fenced and plain JSON) and strip it from the returned HTML
+      let nutrition_info = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      let fitnessHtml = fullResponse;
+      let jsonString: string | null = null;
+      // Try fenced JSON first
+      const fenceMatch = fullResponse.match(/```json\s*([\s\S]*?)```/);
+      if (fenceMatch) {
+        jsonString = fenceMatch[1].trim();
+        fitnessHtml = fullResponse.replace(/```json[\s\S]*?```/, '').trim();
+      } else {
+        // Try plain JSON object appended after HTML
+        const plainMatch = fullResponse.match(/(\{[\s\S]*\})\s*$/);
+        if (plainMatch) {
+          jsonString = plainMatch[1];
+          fitnessHtml = fullResponse.slice(0, plainMatch.index).trim();
+        }
+      }
+      if (jsonString) {
+        try {
+          const parsed = JSON.parse(jsonString);
+          if (parsed.nutrition_info) {
+            nutrition_info = parsed.nutrition_info;
+          }
+        } catch (e) {
+          console.error('Failed to parse nutrition_info JSON:', e);
+          // Fallback: extract numbers from HTML if JSON parse fails
+          nutrition_info = extractNutritionInfo(fitnessHtml);
+        }
+      } else {
+        // No JSON block found: fallback to heuristics
+        nutrition_info = extractNutritionInfo(fitnessHtml);
+      }
+      // Continue with title extraction on cleaned HTML
       function extractTitle(html) {
         const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
         return m ? m[1].trim() : "";

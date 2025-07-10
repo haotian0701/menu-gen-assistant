@@ -261,6 +261,7 @@ void dispose() {
     final mainImageUrl = data['main_image_url'] as String?;
     final raw = data['nutrition_info'] as Map<String, dynamic>?;
     final nutritionInfo = <String,double>{
+      'calories': raw?['calories']?.toDouble() ?? 0,
       'protein': raw?['protein']?.toDouble() ?? 0,
       'carbs':   raw?['carbs']?.toDouble()   ?? 0,
       'fat':     raw?['fat']?.toDouble()     ?? 0,
@@ -302,9 +303,7 @@ void dispose() {
           restrictDiet: widget.restrictDiet ?? '',
           mainImageUrl: mainImageUrl,
           isFitnessMode: widget.mode == 'fitness',
-          nutritionInfo: widget.mode == 'fitness'
-              ? nutritionInfo
-              : null,
+          nutritionInfo: nutritionInfo,
       ),
       ),
     );

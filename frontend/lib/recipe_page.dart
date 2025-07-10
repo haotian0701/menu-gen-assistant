@@ -8,7 +8,6 @@ import 'account_icon_button.dart';
 import 'generating_page.dart';
 import 'extraction_page.dart';
 import 'main.dart'; // For AuthPage
-import 'saved_recipes_page.dart';
 import 'upload_page.dart';
 
 class NutritionPieChart extends StatelessWidget {
@@ -21,37 +20,68 @@ class NutritionPieChart extends StatelessWidget {
     final pCal = data['protein']! * 4;
     final cCal = data['carbs']! * 4;
     final fCal = data['fat']! * 9;
-    return PieChart(
-      PieChartData(
-        sections: [
-          PieChartSectionData(
-            value: pCal,
-            title: 'Protein',
-            color: Theme.of(context).colorScheme.secondary,
-            radius: 60,
-            titlePositionPercentageOffset: 0.8,
-            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+    final totalCal = data['calories'] != null && data['calories']! > 0
+        ? data['calories']!
+        : (pCal + cCal + fCal);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sections: [
+              PieChartSectionData(
+                value: pCal,
+                title: 'Protein',
+                color: Theme.of(context).colorScheme.secondary,
+                radius: 60,
+                titlePositionPercentageOffset: 0.8,
+                titleStyle:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              PieChartSectionData(
+                value: cCal,
+                title: 'Carbs',
+                color: Theme.of(context).colorScheme.primary,
+                radius: 60,
+                titlePositionPercentageOffset: 0.8,
+                titleStyle:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              PieChartSectionData(
+                value: fCal,
+                title: 'Fat',
+                color: Theme.of(context).colorScheme.tertiary,
+                radius: 60,
+                titlePositionPercentageOffset: 0.8,
+                titleStyle:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+            sectionsSpace: 4,
+            centerSpaceRadius: 40,
           ),
-          PieChartSectionData(
-            value: cCal,
-            title: 'Carbs',
-            color: Theme.of(context).colorScheme.primary,
-            radius: 60,
-            titlePositionPercentageOffset: 0.8,
-            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          PieChartSectionData(
-            value: fCal,
-            title: 'Fat',
-            color: Theme.of(context).colorScheme.tertiary,
-            radius: 60,
-            titlePositionPercentageOffset: 0.8,
-            titleStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-        sectionsSpace: 4,
-        centerSpaceRadius: 40,
-      ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${totalCal.round()}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onBackground,
+              ),
+            ),
+            const Text(
+              'kcal',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -60,19 +90,33 @@ class NutritionPieChart extends StatelessWidget {
 // HELPER FUNCTIONS
 // =============================================================================
 
-String _stripHtml(String htmlString) {
-  final htmlRegex = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-  final cleaned = htmlString
-      .replaceAll('```html', '')
-      .replaceAll('```', '')
-      .replaceAll('&nbsp;', ' ');
-  return cleaned.replaceAll(htmlRegex, '').trim();
-}
-
 String _extractTitle(String html) {
   final match =
       RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false).firstMatch(html);
   return match?.group(1)?.trim() ?? '';
+}
+
+String _stripNutritionInfo(String html) {
+  // Remove nutrition_info JSON blocks (both fenced and plain)
+  String cleaned = html;
+  
+  // Remove fenced JSON blocks
+  cleaned = cleaned.replaceAll(RegExp(r'```json\s*\{[^}]*"nutrition_info"[^}]*\}\s*```', 
+      multiLine: true, dotAll: true), '');
+  
+  // Remove plain JSON objects containing nutrition_info
+  cleaned = cleaned.replaceAll(RegExp(r'\{\s*"nutrition_info"\s*:\s*\{[^}]*\}\s*\}', 
+      multiLine: true, dotAll: true), '');
+  
+  // Remove any standalone nutrition_info objects
+  cleaned = cleaned.replaceAll(RegExp(r'\{[^}]*"calories"[^}]*"protein"[^}]*"carbs"[^}]*"fat"[^}]*\}', 
+      multiLine: true, dotAll: true), '');
+  
+  // Clean up extra whitespace and line breaks
+  cleaned = cleaned.replaceAll(RegExp(r'\n\s*\n\s*\n'), '\n\n');
+  cleaned = cleaned.replaceAll(RegExp(r'^\s+', multiLine: true), '');
+  
+  return cleaned.trim();
 }
 
 // =============================================================================
@@ -134,11 +178,11 @@ class _RecipePageState extends State<RecipePage> {
     final preMatch = preRegex.firstMatch(tempRecipe);
 
     if (preMatch != null) {
-      _cleanedRecipe = preMatch.group(1)!.trim();
-    } else {
-      _cleanedRecipe = tempRecipe;
+      tempRecipe = preMatch.group(1)!.trim();
     }
 
+    // Strip nutrition info JSON from the recipe content
+    _cleanedRecipe = _stripNutritionInfo(tempRecipe);
     _pageTitle = _extractTitle(_cleanedRecipe);
   }
 
@@ -633,125 +677,9 @@ class RecipeSection extends StatelessWidget {
   }
 }
 
-class RecipeHeader extends StatelessWidget {
-  final String pageTitle;
-
-  const RecipeHeader({
-    super.key,
-    required this.pageTitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 800;
-        final isPortrait = constraints.maxHeight > constraints.maxWidth;
-        final isMobilePortrait = isSmallScreen && isPortrait;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              pageTitle.isNotEmpty ? pageTitle : 'Generated Recipe',
-              style: TextStyle(
-                fontSize: isMobilePortrait ? 20 : (isSmallScreen ? 22 : 24),
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
-                height: 1.2,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: isMobilePortrait ? 6 : (isSmallScreen ? 8 : 12)),
-            Text(
-              'Your recipe based on the detected ingredients',
-              style: TextStyle(
-                fontSize: isMobilePortrait ? 14 : (isSmallScreen ? 15 : 16),
-                color: Colors.grey.shade600,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class VideoButton extends StatelessWidget {
-  final String videoUrl;
-
-  const VideoButton({
-    super.key,
-    required this.videoUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 800;
-        final isPortrait = constraints.maxHeight > constraints.maxWidth;
-        final isMobilePortrait = isSmallScreen && isPortrait;
-        final height = isMobilePortrait ? 48.0 : 44.0;
-
-        return Container(
-          width: double.infinity,
-          height: height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(isMobilePortrait ? 10 : 8),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1E40AF).withOpacity(0.2),
-                blurRadius: isMobilePortrait ? 6 : 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ElevatedButton.icon(
-            icon: Icon(
-              Icons.play_circle_fill,
-              size: isMobilePortrait ? 20 : 18,
-            ),
-            label: Text(
-              'Watch Cooking Video',
-              style: TextStyle(
-                fontSize: isMobilePortrait ? 15 : 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            onPressed: () async {
-              final uri = Uri.parse(videoUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Could not launch video'),
-                    backgroundColor: const Color(0xFFEF4444),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E40AF),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(isMobilePortrait ? 10 : 8),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+// =============================================================================
+// RECIPE CONTENT COMPONENT
+// =============================================================================
 
 class RecipeContent extends StatelessWidget {
   final String recipe;
@@ -1264,16 +1192,63 @@ class NutritionChartCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Nutritional Breakdown',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            Text(
+              'Nutritional Breakdown',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1E293B),
+                  ),
+            ),
+            const SizedBox(height: 16),
             SizedBox(
               height: 180,
               child: NutritionPieChart(data: nutritionInfo),
             ),
+            const SizedBox(height: 16),
+            _buildLegend(context),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLegend(BuildContext context) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: [
+        _legendItem(context, Theme.of(context).colorScheme.secondary,
+            'Protein: ${nutritionInfo['protein']?.round() ?? 0}g'),
+        _legendItem(context, Theme.of(context).colorScheme.primary,
+            'Carbs: ${nutritionInfo['carbs']?.round() ?? 0}g'),
+        _legendItem(context, Theme.of(context).colorScheme.tertiary,
+            'Fat: ${nutritionInfo['fat']?.round() ?? 0}g'),
+      ],
+    );
+  }
+
+  Widget _legendItem(BuildContext context, Color color, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF475569),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
