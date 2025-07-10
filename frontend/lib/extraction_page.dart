@@ -1469,15 +1469,6 @@ class OptionsGrid extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: isSmallScreen ? 12 : 16),
-                Expanded(
-                  child: _buildOptionField(
-                    'Dietary Goal',
-                    controller.selectedGoal,
-                    controller.dietaryGoals,
-                    controller.setSelectedGoal,
-                    isSmallScreen,
-                  ),
-                ),
               ],
             ),
             SizedBox(height: isSmallScreen ? 16 : 20),
@@ -1846,7 +1837,7 @@ class GenerateButton extends StatelessWidget {
   }
 
   void _onGeneratePressed(BuildContext context) {
-    // fitness 模式
+    // fitness mode
     if (controller.mode == 'fitness') {
       Navigator.of(context).push(
         MaterialPageRoute(
