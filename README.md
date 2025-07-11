@@ -37,3 +37,4 @@ Find our slide deck here:
 - Youtube
 - Flutter
 - Supabase
+- Google Search API
