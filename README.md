@@ -48,8 +48,6 @@ Cookpilot is an intelligent recipe generation app that transforms your food phot
 ### 🎨 Design & Branding
 - **Consistent Branding**: "Cookpilot" branding throughout the app with custom icon
 - **Modern UI Components**: Clean, professional interface with smooth transitions
-- **Accessibility**: Screen reader support and keyboard navigation
-- **Dark/Light Theme**: Adaptive theming for different preferences
 
 ## 🚀 How It Works
 
@@ -77,16 +75,16 @@ Cookpilot is an intelligent recipe generation app that transforms your food phot
 - **Gemini Vision API**: Image analysis and ingredient detection
 - **Gemini Image Generation**: AI-generated food preview images
 - **YouTube Data API**: Automatic video recommendations
-- **Google Custom Search API**: Enhanced content discovery
+- **Google Custom Search API**: Enhanced image discovery
 
 ### Deployment
 - **Netlify**: Static site hosting with continuous deployment
-- **GitHub**: Version control and CI/CD integration
+- **GitHub**: Version control
 
 ## 💻 Usage
 
 ### Target Devices
-- **Primary**: Mobile devices (smartphones and tablets) via web browser
+- **Primary**: Mobile devices (smartphones) via web browser
 - **Secondary**: Desktop computers with full functionality
 
 ### Getting Started
