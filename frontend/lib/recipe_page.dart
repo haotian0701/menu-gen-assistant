@@ -220,6 +220,12 @@ String _stripNutritionInfo(String html) {
   return cleaned.trim();
 }
 
+String _removeTitleFromHtml(String html) {
+  // Remove the first h1 tag (title) from the HTML content
+  // This prevents duplicate title display since we show it separately
+  return html.replaceFirst(RegExp(r'<h1[^>]*>.*?</h1>', caseSensitive: false, dotAll: true), '').trim();
+}
+
 // =============================================================================
 // MAIN PAGE CLASS
 // =============================================================================
@@ -678,7 +684,20 @@ class RecipeSection extends StatelessWidget {
                         ),
                       ),
                     ),
-                  RecipeContent(recipe: recipe),
+                  // Recipe title display
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Text(
+                      pageTitle,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onBackground,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  RecipeContent(recipe: _removeTitleFromHtml(recipe)),
                   if (isFitnessMode == true && _hasValidNutritionData(nutritionInfo))
                     NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(
@@ -779,7 +798,7 @@ class RecipeSection extends StatelessWidget {
                         ),
                       ),
                     ),
-                  RecipeContent(recipe: recipe),
+                  RecipeContent(recipe: _removeTitleFromHtml(recipe)),
                   if (isFitnessMode == true && _hasValidNutritionData(nutritionInfo))
                     NutritionChartCard(nutritionInfo: nutritionInfo!),
                   ActionButtons(

@@ -56,6 +56,7 @@ class _GeneratingPageState extends State<GeneratingPage> {
   bool _generatingFinal = false;  
   bool _showCandidates = false;
   bool _loadingDefault = false;
+  bool _isGeneratingRecipe = false; // Flag to prevent duplicate recipe generation
   double _progress = 0.0;
   Timer? _progressTimer;
   void _startFakeProgress() {
@@ -107,7 +108,7 @@ void dispose() {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
 
     // Ensure we have either an access token or the anon key for the Authorization header
-    if (accessToken == null && anonKey == null) {
+    if (accessToken == null && anonKey.isEmpty) {
       print('Error: Neither access token nor anon key is available.');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -174,6 +175,10 @@ void dispose() {
 
 
   Future<void> _generateFinalRecipe(String selectedTitle, [String? selectedImage]) async {
+  // Prevent duplicate calls
+  if (_isGeneratingRecipe) return;
+  _isGeneratingRecipe = true;
+  
   _startFakeProgress();
   setState(() { 
     _generatingFinal = true;
@@ -308,25 +313,7 @@ void dispose() {
       'fat':     raw?['fat']?.toDouble()     ?? 0,
     };
 
-    // history
-    final user = client.auth.currentUser;
-    if (user != null) {
-      await client.from('history').insert({
-        'user_id': user.id,
-        'image_url': widget.imageUrl,
-        'main_image_url': mainImageUrl,
-        'recipe_html': recipe,
-        'recipe_title': selectedTitle.isNotEmpty ? selectedTitle : _extractTitleFromHtml(recipe),
-        'detected_items': items,
-        'video_url': widget.mode == 'fitness' ? null : videoUrl,
-        'meal_type': widget.mealType,
-        'dietary_goal': widget.dietaryGoal,
-        'meal_time': widget.mealTime,
-        'amount_people': widget.amountPeople,
-        'restrict_diet': widget.restrictDiet,
-        'nutrition_info': widget.mode == 'fitness' ? widget.nutritionInfo : null,
-      });
-    }
+    // Note: History is now handled by the backend Edge Function to avoid duplicates
 
     if (!mounted) return;
     
@@ -359,30 +346,16 @@ void dispose() {
     }
     } finally {
       _stopFakeProgress();
-      if (mounted) setState(() { _generatingFinal = false; });
+      if (mounted) setState(() { 
+        _generatingFinal = false; 
+        _isGeneratingRecipe = false; // Reset the flag
+      });
   }
 }
 
-  // Helper to extract title from generated HTML
-  String _extractTitleFromHtml(String html) {
-    final match = RegExp(r"<h1[^>]*>(.*?)<\\/h1>", caseSensitive: false).firstMatch(html);
-    final rawTitle = match?.group(1)?.trim() ?? '';
-    return _decodeHtmlEntities(rawTitle);
-  }
 
-  String _decodeHtmlEntities(String text) {
-    return text
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'")
-        .replaceAll('&apos;', "'")
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&copy;', '©')
-        .replaceAll('&reg;', '®')
-        .replaceAll('&trade;', '™');
-  }
+
+
 
 @override
 Widget build(BuildContext context) {
