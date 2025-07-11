@@ -197,11 +197,24 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _loading = true);
     
     try {
-      // Let Supabase handle the redirect automatically
-      // This will work for both localhost and production (Netlify)
+      // Use your actual production URL here
+      const productionUrl = 'https://stirring-bunny-e01568.netlify.app/'; // Replace with your actual URL
+      
+      // Determine the correct redirect URL based on environment
+      String redirectUrl;
+      final currentUrl = Uri.base.toString();
+      
+      if (currentUrl.contains('localhost')) {
+        // Development environment
+        redirectUrl = 'http://localhost:3000/';
+      } else {
+        // Production environment
+        redirectUrl = productionUrl;
+      }
+      
       await supabase.auth.signInWithOAuth(
         OAuthProvider.github,
-        redirectTo: Uri.base.toString(),
+        redirectTo: redirectUrl,
       );
       
       // The redirect will be handled automatically by Supabase
