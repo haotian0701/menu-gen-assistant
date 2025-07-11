@@ -372,7 +372,23 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Sign Up')),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/app_icon.png',
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.restaurant, size: 24);
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(_isLogin ? 'Cookpilot - Login' : 'Cookpilot - Sign Up'),
+          ],
+        ),
+      ),
       backgroundColor: const Color(0xFFF8FAFC),
       body: Center(
         child: SingleChildScrollView(

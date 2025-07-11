@@ -265,7 +265,23 @@ class _PreferencesPageState extends State<PreferencesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Default Preferences')),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/app_icon.png',
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.restaurant, size: 24);
+              },
+            ),
+            const SizedBox(width: 8),
+            const Text('Cookpilot - Default Preferences'),
+          ],
+        ),
+      ),
       body: _loading
           ? const AnimatedLoadingWidget(type: LoadingType.loading)
           : Padding(

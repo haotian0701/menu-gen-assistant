@@ -96,7 +96,21 @@ class _HistoryPageState extends State<HistoryPage> {
     final currentUser = _supabase.auth.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My History'),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/app_icon.png',
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.restaurant, size: 24);
+              },
+            ),
+            const SizedBox(width: 8),
+            const Text('Cookpilot - My History'),
+          ],
+        ),
         actions: [
           const AccountIconButton(), // Add the new account icon button
           // Remove the old refresh button if AccountIconButton handles navigation well

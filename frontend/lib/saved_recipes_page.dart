@@ -109,7 +109,21 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
     final currentUser = _supabase.auth.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved Recipes'),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/app_icon.png',
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.restaurant, size: 24);
+              },
+            ),
+            const SizedBox(width: 8),
+            const Text('Cookpilot - Saved Recipes'),
+          ],
+        ),
         actions: [
           const AccountIconButton(),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadSavedRecipes),

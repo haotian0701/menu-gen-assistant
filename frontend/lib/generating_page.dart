@@ -352,14 +352,28 @@ Widget build(BuildContext context) {
 
   return Scaffold(
     appBar: AppBar(
-      title: Text(
-        _generatingFinal
-          ? 'Finalizing Recipe...'
-          : _loadingDefault
-            ? 'Generating Instantly...'
-            : _loadingCandidates
-              ? 'Loading Candidates...'
-              : 'AI Recipe Generator'
+      title: Row(
+        children: [
+          Image.asset(
+            'assets/images/app_icon.png',
+            width: 24,
+            height: 24,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(Icons.restaurant, size: 24);
+            },
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _generatingFinal
+              ? 'Cookpilot - Finalizing Recipe...'
+              : _loadingDefault
+                ? 'Cookpilot - Generating Instantly...'
+                : _loadingCandidates
+                  ? 'Cookpilot - Loading Candidates...'
+                  : 'Cookpilot - AI Recipe Generator'
+          ),
+        ],
       ),
 
       bottom: isLoading
