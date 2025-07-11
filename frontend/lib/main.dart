@@ -2,8 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'dart:io';
 
 import 'upload_page.dart'; // Ensure this is the correct import for UploadImagePage
 import 'animated_loading.dart';
@@ -23,8 +21,37 @@ void main() async {
 
 final supabase = Supabase.instance.client;
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    
+    // Listen to auth state changes
+    supabase.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      final session = data.session;
+      
+      if (event == AuthChangeEvent.signedIn && session != null) {
+        // User signed in successfully
+        print('User signed in: ${session.user.email}');
+        
+        // Show success message if we have a context
+        if (mounted) {
+          // You can add a global success notification here if needed
+          print('Authentication successful!');
+        }
+      } else if (event == AuthChangeEvent.signedOut) {
+        print('User signed out');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,118 +178,34 @@ class _AuthPageState extends State<AuthPage> {
       return 'Too many attempts. Please wait a few minutes before trying again.';
     }
     
+    if (lowerError.contains('oauth') || 
+        lowerError.contains('provider')) {
+      return 'OAuth sign-in failed. Please try again or use email/password instead.';
+    }
+    
+    if (lowerError.contains('cancelled') || 
+        lowerError.contains('canceled')) {
+      return 'Sign-in was cancelled. Please try again.';
+    }
+    
     // If no specific error is matched, return a generic message
     return 'An error occurred. Please try again later.';
   }
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _signInWithGitHub() async {
     _clearError();
     setState(() => _loading = true);
     
     try {
+      // Let Supabase handle the redirect automatically
+      // This will work for both localhost and production (Netlify)
       await supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.app://callback',
+        OAuthProvider.github,
+        redirectTo: Uri.base.toString(),
       );
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Successfully signed in with Google!'),
-              ],
-            ),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
-        
-        // Navigate back to the previous page or to UploadImagePage
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const UploadImagePage()),
-          );
-        }
-      }
-    } on AuthException catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = _getReadableErrorMessage(e.message);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = _getReadableErrorMessage(e.toString());
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _signInWithApple() async {
-    if (!Platform.isIOS) {
-      setState(() {
-        _errorMessage = 'Apple Sign In is only available on iOS devices';
-      });
-      return;
-    }
-    
-    _clearError();
-    setState(() => _loading = true);
-    
-    try {
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      
-      final res = await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: credential.identityToken!,
-        nonce: credential.authorizationCode,
-      );
-      
-      if (mounted) {
-        if (res.user != null && res.session != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Successfully signed in with Apple!'),
-                ],
-              ),
-              backgroundColor: Color(0xFF10B981),
-            ),
-          );
-          
-          // Navigate back to the previous page or to UploadImagePage
-          if (Navigator.canPop(context)) {
-            Navigator.pop(context);
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const UploadImagePage()),
-            );
-          }
-        } else {
-          setState(() {
-            _errorMessage = 'Apple Sign In failed. Please try again.';
-          });
-        }
-      }
+      // The redirect will be handled automatically by Supabase
+      // No need for manual navigation on web
     } on AuthException catch (e) {
       if (mounted) {
         setState(() {
@@ -429,385 +372,181 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isLogin ? 'Sign In' : 'Create Account'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: const Color(0xFF374151),
-      ),
+      appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Sign Up')),
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 600;
-            final isMobilePortrait = constraints.maxHeight > constraints.maxWidth && isSmallScreen;
-            
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isSmallScreen ? 16 : 32,
-                  vertical: isSmallScreen ? 16 : 24,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
                 ),
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: isSmallScreen ? double.infinity : 420,
-                    minHeight: isMobilePortrait ? constraints.maxHeight * 0.6 : 0,
-                  ),
-                  padding: EdgeInsets.all(isSmallScreen ? 24 : 32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
-                    border: Border.all(color: Colors.grey.shade200, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: isSmallScreen ? 12 : 20,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: _loading
-                      ? SizedBox(
-                          height: 200,
-                          child: const AnimatedLoadingWidget(type: LoadingType.loading),
-                        )
-                      : Form(
-                          key: _formKey,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Header section
-                              Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981).withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _isLogin ? Icons.login : Icons.person_add,
-                                      size: isSmallScreen ? 32 : 40,
-                                      color: const Color(0xFF10B981),
-                                    ),
-                                  ),
-                                  SizedBox(height: isSmallScreen ? 16 : 20),
-                                  Text(
-                                    _isLogin ? 'Welcome Back!' : 'Join Cookpilot',
+              ],
+            ),
+            child: _loading
+                ? const AnimatedLoadingWidget(type: LoadingType.loading)
+                : Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!_isLogin)
+                          TextFormField(
+                            controller: usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              border: OutlineInputBorder(),
+                            ),
+                            textInputAction: TextInputAction.next,
+                            validator: _validateUsername,
+                            onChanged: (_) => _clearError(),
+                          ),
+                        if (!_isLogin) const SizedBox(height: 16),
+                        TextFormField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          validator: _validateEmail,
+                          onChanged: (_) => _clearError(),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                          ),
+                          obscureText: true,
+                          textInputAction: TextInputAction.done,
+                          validator: _validatePassword,
+                          onChanged: (_) => _clearError(),
+                          onFieldSubmitted: (_) => _isLogin ? _login() : _signUp(),
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
                                     style: TextStyle(
-                                      fontSize: isSmallScreen ? 24 : 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF1F2937),
+                                      color: Colors.red.shade700,
+                                      fontSize: 14,
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _isLogin 
-                                        ? 'Sign in to access your recipes and preferences'
-                                        : 'Create an account to save recipes and personalize your experience',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 14 : 16,
-                                      color: const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: isSmallScreen ? 24 : 32),
-                              
-                              // Form fields
-                              if (!_isLogin)
-                                Column(
-                                  children: [
-                                    TextFormField(
-                                      controller: usernameController,
-                                      decoration: InputDecoration(
-                                        labelText: 'Username',
-                                        prefixIcon: const Icon(Icons.person_outline),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide(color: Colors.grey.shade300),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.grey.shade50,
-                                      ),
-                                      textInputAction: TextInputAction.next,
-                                      validator: _validateUsername,
-                                      onChanged: (_) => _clearError(),
-                                    ),
-                                    SizedBox(height: isSmallScreen ? 16 : 20),
-                                  ],
-                                ),
-                              TextFormField(
-                                controller: emailController,
-                                decoration: InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: const Icon(Icons.email_outlined),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                validator: _validateEmail,
-                                onChanged: (_) => _clearError(),
-                              ),
-                              SizedBox(height: isSmallScreen ? 16 : 20),
-                              TextFormField(
-                                controller: passwordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                obscureText: true,
-                                textInputAction: TextInputAction.done,
-                                validator: _validatePassword,
-                                onChanged: (_) => _clearError(),
-                                onFieldSubmitted: (_) => _isLogin ? _login() : _signUp(),
-                              ),
-                              
-                              // Error message
-                              if (_errorMessage != null) ...[
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.red.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.error_outline,
-                                        color: Colors.red.shade700,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          _errorMessage!,
-                                          style: TextStyle(
-                                            color: Colors.red.shade700,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],
-                              
-                              SizedBox(height: isSmallScreen ? 24 : 32),
-                              
-                              // Main action button
-                              SizedBox(
-                                height: isSmallScreen ? 48 : 52,
-                                child: ElevatedButton(
-                                  onPressed: _isLogin ? _login : _signUp,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF10B981),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _isLogin ? 'Sign In' : 'Create Account',
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 16 : 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              
-                              SizedBox(height: isSmallScreen ? 20 : 24),
-                              
-                              // OAuth divider and buttons
-                              Row(
-                                children: [
-                                  Expanded(child: Divider(color: Colors.grey.shade300)),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(
-                                      'OR',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(child: Divider(color: Colors.grey.shade300)),
-                                ],
-                              ),
-                              
-                              SizedBox(height: isSmallScreen ? 20 : 24),
-                              
-                              // OAuth buttons
-                              Row(
-                                children: [
-                                  // Google Sign In
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: isSmallScreen ? 48 : 52,
-                                      child: OutlinedButton.icon(
-                                        onPressed: _signInWithGoogle,
-                                        icon: Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            image: DecorationImage(
-                                              image: NetworkImage('https://developers.google.com/identity/images/g-logo.png'),
-                                              fit: BoxFit.contain,
-                                            ),
-                                          ),
-                                        ),
-                                        label: Text(
-                                          'Google',
-                                          style: TextStyle(
-                                            fontSize: isSmallScreen ? 14 : 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF374151),
-                                          ),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: const Color(0xFF374151),
-                                          side: BorderSide(color: Colors.grey.shade300),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  
-                                  const SizedBox(width: 12),
-                                  
-                                  // Apple Sign In (only show on iOS or for demonstration)
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: isSmallScreen ? 48 : 52,
-                                      child: OutlinedButton.icon(
-                                        onPressed: Platform.isIOS ? _signInWithApple : () {
-                                          setState(() {
-                                            _errorMessage = 'Apple Sign In is only available on iOS devices';
-                                          });
-                                        },
-                                        icon: const Icon(
-                                          Icons.apple,
-                                          size: 20,
-                                          color: Color(0xFF000000),
-                                        ),
-                                        label: Text(
-                                          'Apple',
-                                          style: TextStyle(
-                                            fontSize: isSmallScreen ? 14 : 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFF374151),
-                                          ),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: const Color(0xFF374151),
-                                          side: BorderSide(color: Colors.grey.shade300),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              SizedBox(height: isSmallScreen ? 20 : 24),
-                              
-                              // Switch mode button
-                              TextButton(
-                                onPressed: () {
-                                  _clearError();
-                                  setState(() {
-                                    _isLogin = !_isLogin;
-                                    // Clear form when switching modes
-                                    if (_isLogin) {
-                                      usernameController.clear();
-                                    }
-                                  });
-                                },
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: isSmallScreen ? 12 : 16,
-                                  ),
-                                ),
-                                child: RichText(
-                                  textAlign: TextAlign.center,
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 14 : 16,
-                                      color: const Color(0xFF6B7280),
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: _isLogin
-                                            ? "Don't have an account? "
-                                            : 'Already have an account? ',
-                                      ),
-                                      TextSpan(
-                                        text: _isLogin ? 'Sign Up' : 'Sign In',
-                                        style: const TextStyle(
-                                          color: Color(0xFF10B981),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _isLogin ? _login : _signUp,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            _isLogin ? 'Log In' : 'Sign Up',
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
-                ),
-              ),
-            );
-          },
+                        const SizedBox(height: 16),
+                        
+                        // OAuth divider and buttons
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade400)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade400)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // OAuth buttons
+                        // GitHub Sign In
+                        OutlinedButton.icon(
+                          onPressed: _signInWithGitHub,
+                          icon: const Icon(
+                            Icons.code,
+                            size: 20,
+                            color: Colors.black,
+                          ),
+                          label: const Text(
+                            'Continue with GitHub',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            _clearError();
+                            setState(() {
+                              _isLogin = !_isLogin;
+                              // Clear form when switching modes
+                              if (_isLogin) {
+                                usernameController.clear();
+                              }
+                            });
+                          },
+                          child: Text(
+                            _isLogin
+                                ? 'Need an account? Sign Up'
+                                : 'Have an account? Log In',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         ),
       ),
     );
