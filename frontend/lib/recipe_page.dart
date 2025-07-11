@@ -658,15 +658,6 @@ class RecipeSection extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  Text(
-                    pageTitle,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   if (videoUrl?.isNotEmpty == true)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),

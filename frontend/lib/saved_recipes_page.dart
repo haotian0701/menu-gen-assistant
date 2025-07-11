@@ -121,7 +121,12 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
               },
             ),
             const SizedBox(width: 8),
-            const Text('Cookpilot - Saved Recipes'),
+            Flexible(
+              child: Text(
+                'Cookpilot',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [

@@ -201,24 +201,63 @@ void dispose() {
   };
 
   if (widget.mode == 'fitness') {
-    if (widget.fitnessData != null) body['fitness_data'] = widget.fitnessData;
     body['mode'] = 'fitness';
-    final fd = widget.fitnessData!;
-    if (fd['height'] != null && fd['height'].toString().isNotEmpty) {
-      body['height_cm'] = parseDouble(fd['height'].toString());
+    
+    // Use default values if not provided
+    double height = 180.0; // Default height: 180cm
+    double weight = 80.0;   // Default weight: 80kg
+    int age = 30;           // Default age: 30 years
+    String gender = 'Male'; // Default gender: Male
+    String goal = 'muscle_gain'; // Default fitness goal
+    
+    List<String> assumedValues = [];
+    
+    if (widget.fitnessData != null) {
+      body['fitness_data'] = widget.fitnessData;
+      final fd = widget.fitnessData!;
+      
+      if (fd['height'] != null && fd['height'].toString().isNotEmpty) {
+        height = parseDouble(fd['height'].toString()) ?? height;
+      } else {
+        assumedValues.add('height (180cm)');
+      }
+      
+      if (fd['weight'] != null && fd['weight'].toString().isNotEmpty) {
+        weight = parseDouble(fd['weight'].toString()) ?? weight;
+      } else {
+        assumedValues.add('weight (80kg)');
+      }
+      
+      if (fd['age'] != null && fd['age'].toString().isNotEmpty) {
+        age = parseInt(fd['age'].toString()) ?? age;
+      } else {
+        assumedValues.add('age (30 years)');
+      }
+      
+      if (fd['gender'] != null && fd['gender'].toString().isNotEmpty) {
+        gender = fd['gender'];
+      }
+      
+      if (fd['goal'] != null && fd['goal'].toString().isNotEmpty) {
+        goal = fd['goal'];
+      }
+    } else {
+      // All values are assumed when fitnessData is null
+      assumedValues.addAll(['height (180cm)', 'weight (80kg)', 'age (30 years)']);
     }
-    if (fd['weight'] != null && fd['weight'].toString().isNotEmpty) {
-      body['weight_kg'] = parseDouble(fd['weight'].toString());
+    
+    // Always include these values (using defaults if not provided)
+    body['height_cm'] = height;
+    body['weight_kg'] = weight;
+    body['age'] = age;
+    body['gender'] = gender;
+    body['fitness_goal'] = goal;
+    
+    // Add a note about assumed values for the LLM
+    if (assumedValues.isNotEmpty) {
+      body['assumed_values_note'] = 'Note: The following values were assumed as defaults: ${assumedValues.join(', ')}. Please mention in your response that these are assumed values.';
     }
-    if (fd['gender'] != null && fd['gender'].toString().isNotEmpty) {
-      body['gender'] = fd['gender'];
-    }
-    if (fd['age'] != null && fd['age'].toString().isNotEmpty) {
-      body['age'] = parseInt(fd['age'].toString());
-    }
-    if (fd['goal'] != null && fd['goal'].toString().isNotEmpty) {
-      body['fitness_goal'] = fd['goal'];
-    }
+    
     if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
       body['manual_labels'] = widget.manualLabels;
     }
@@ -226,13 +265,12 @@ void dispose() {
     body['meal_type'] = widget.mealType ?? '';
     body['dietary_goal'] = widget.dietaryGoal ?? '';
     body['selected_title'] = selectedTitle;
-    if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
-    if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
-    if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
     if (widget.manualLabels != null && widget.manualLabels!.isNotEmpty) {
       body['manual_labels'] = widget.manualLabels;
     }
   }
+  
+  // Common parameters for both modes
   if (widget.mealTime != null) body['meal_time'] = widget.mealTime;
   if (widget.amountPeople != null) body['amount_people'] = widget.amountPeople;
   if (widget.restrictDiet != null) body['restrict_diet'] = widget.restrictDiet;
@@ -364,14 +402,11 @@ Widget build(BuildContext context) {
             },
           ),
           const SizedBox(width: 8),
-          Text(
-            _generatingFinal
-              ? 'Cookpilot - Finalizing Recipe...'
-              : _loadingDefault
-                ? 'Cookpilot - Generating Instantly...'
-                : _loadingCandidates
-                  ? 'Cookpilot - Loading Candidates...'
-                  : 'Cookpilot - AI Recipe Generator'
+          Flexible(
+            child: Text(
+              'Cookpilot',
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

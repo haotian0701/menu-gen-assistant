@@ -385,7 +385,12 @@ class _AuthPageState extends State<AuthPage> {
               },
             ),
             const SizedBox(width: 8),
-            Text(_isLogin ? 'Cookpilot - Login' : 'Cookpilot - Sign Up'),
+            Flexible(
+              child: Text(
+                'Cookpilot',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),

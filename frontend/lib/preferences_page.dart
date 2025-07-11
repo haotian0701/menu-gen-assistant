@@ -278,7 +278,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
               },
             ),
             const SizedBox(width: 8),
-            const Text('Cookpilot - Default Preferences'),
+            Flexible(
+              child: Text(
+                'Cookpilot',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),

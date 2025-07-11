@@ -108,7 +108,12 @@ class _HistoryPageState extends State<HistoryPage> {
               },
             ),
             const SizedBox(width: 8),
-            const Text('Cookpilot - My History'),
+            Flexible(
+              child: Text(
+                'Cookpilot',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
