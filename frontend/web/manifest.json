@@ -1,11 +1,11 @@
 {
-    "name": "supabase_demo",
-    "short_name": "supabase_demo",
+    "name": "Cookpilot Recipe Assistant",
+    "short_name": "Cookpilot",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1E40AF",
+    "theme_color": "#1E40AF",
+    "description": "AI-Powered Recipe Generator - Upload food images and get personalized recipes instantly.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
