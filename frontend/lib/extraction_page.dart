@@ -1935,7 +1935,7 @@ class GenerateButton extends StatelessWidget {
                     ),
                     SizedBox(width: isSmallScreen ? 8 : 10),
                     Text(
-                      label,
+                      controller.mode == 'fitness' ? 'Generate Recipe' : label,
                       style: TextStyle(
                         fontSize: isSmallScreen ? 16 : 18,
                         fontWeight: FontWeight.w500,
