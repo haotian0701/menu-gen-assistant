@@ -308,6 +308,26 @@ class ExtractionController extends ChangeNotifier {
     'Blender', 'Food Processor', 'BBQ', 'Slow Cooker', 'Pressure Cooker'
   ];
 
+  // Label mappings for user-friendly display
+  static const Map<String, String> _mealTypeLabels = {
+    'general': 'General',
+    'breakfast': 'Breakfast',
+    'lunch': 'Lunch',
+    'dinner': 'Dinner',
+  };
+
+  static const Map<String, String> _mealTimeLabels = {
+    'fast': 'Quick (15-30 min)',
+    'medium': 'Medium (30-60 min)',
+    'long': 'Long (60+ min)',
+  };
+
+  static const Map<String, String> _fitnessGoalLabels = {
+    'muscle_gain': 'Muscle Gain',
+    'fat_loss': 'Fat Loss',
+    'healthy_eating': 'Healthy Eating',
+  };
+
   // State for extra fields
   String _selectedRegion = 'Any';
   String _selectedSkill  = 'Beginner';
@@ -1444,6 +1464,7 @@ class OptionsGrid extends StatelessWidget {
                 ['muscle_gain', 'fat_loss', 'healthy_eating'],
                 (v) => controller.setFitnessGoal(v),
                 isSmallScreen,
+                labelMap: ExtractionController._fitnessGoalLabels,
               ),
               const SizedBox(height: 16),
               _AdvancedOptions(controller: controller, isSmallScreen: isSmallScreen),
@@ -1462,6 +1483,7 @@ class OptionsGrid extends StatelessWidget {
                     controller.mealTypes,
                     controller.setSelectedMeal,
                     isSmallScreen,
+                    labelMap: ExtractionController._mealTypeLabels,
                   ),
                 ),
                 SizedBox(width: isSmallScreen ? 12 : 16),
@@ -1477,6 +1499,7 @@ class OptionsGrid extends StatelessWidget {
                     controller.mealTimeOptions,
                     controller.setSelectedTime,
                     isSmallScreen,
+                    labelMap: ExtractionController._mealTimeLabels,
                   ),
                 ),
                 SizedBox(width: isSmallScreen ? 12 : 16),
@@ -1520,7 +1543,14 @@ class OptionsGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildDropdownField(String label, String value, List<String> options, ValueChanged<String> onChanged, bool isSmallScreen) {
+  Widget _buildDropdownField(
+    String label, 
+    String value, 
+    List<String> options, 
+    ValueChanged<String> onChanged, 
+    bool isSmallScreen, {
+    Map<String, String>? labelMap,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1545,7 +1575,8 @@ class OptionsGrid extends StatelessWidget {
               value: value,
               items: options.map((e) => DropdownMenuItem(
                 value: e,
-                child: Text(e,
+                child: Text(
+                  labelMap != null && labelMap.containsKey(e) ? labelMap[e]! : e,
                   style: TextStyle(
                     fontSize: isSmallScreen ? 13 : 14,
                     color: const Color(0xFF1E293B),
@@ -1566,8 +1597,9 @@ class OptionsGrid extends StatelessWidget {
     String currentValue,
     List<String> options,
     void Function(String) onChanged,
-    bool isSmallScreen,
-  ) {
+    bool isSmallScreen, {
+    Map<String, String>? labelMap,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1595,7 +1627,7 @@ class OptionsGrid extends StatelessWidget {
                   .map((e) => DropdownMenuItem(
                         value: e,
                         child: Text(
-                          e,
+                          labelMap != null && labelMap.containsKey(e) ? labelMap[e]! : e,
                           style: TextStyle(
                             fontSize: isSmallScreen ? 13 : 14,
                             color: const Color(0xFF1E293B),
