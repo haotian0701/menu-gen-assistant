@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'account_icon_button.dart';
 import 'generating_page.dart';
 import 'extraction_page.dart';
@@ -263,10 +264,21 @@ class RecipePage extends StatefulWidget {
 class _RecipePageState extends State<RecipePage> {
   late final String _cleanedRecipe;
   late final String _pageTitle;
+  late final StreamSubscription<AuthState> _authSubscription;
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
+    _isLoggedIn = Supabase.instance.client.auth.currentUser != null;
+    
+    // Listen for auth state changes
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      setState(() {
+        _isLoggedIn = data.session?.user != null;
+      });
+    });
+    
     String tempRecipe = widget.recipe
         .replaceAll('```html', '')
         .replaceAll('```', '')
@@ -284,6 +296,12 @@ class _RecipePageState extends State<RecipePage> {
     // Strip nutrition info JSON from the recipe content
     _cleanedRecipe = _stripNutritionInfo(tempRecipe);
     _pageTitle = _extractTitle(_cleanedRecipe);
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   @override
@@ -337,6 +355,7 @@ class _RecipePageState extends State<RecipePage> {
                           mainImageUrl: widget.mainImageUrl,
                           nutritionInfo: widget.nutritionInfo,
                           isFitnessMode: widget.isFitnessMode,
+                          isLoggedIn: _isLoggedIn,
                         ),
                       ),
                     ),
@@ -562,6 +581,7 @@ class RecipeSection extends StatelessWidget {
   final String? mainImageUrl;
   final Map<String, double>? nutritionInfo;
   final bool? isFitnessMode;
+  final bool isLoggedIn;
 
   const RecipeSection({
     super.key,
@@ -575,6 +595,7 @@ class RecipeSection extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
+    required this.isLoggedIn,
     this.mainImageUrl,
     this.nutritionInfo,
     this.isFitnessMode,
@@ -682,6 +703,7 @@ class RecipeSection extends StatelessWidget {
                     mainImageUrl: mainImageUrl,
                     isFitnessMode: isFitnessMode,
                     nutritionInfo: nutritionInfo,
+                    isLoggedIn: isLoggedIn,
                   ),
                 ],
               ),
@@ -782,6 +804,7 @@ class RecipeSection extends StatelessWidget {
                     mainImageUrl: mainImageUrl,
                     isFitnessMode: isFitnessMode,
                     nutritionInfo: nutritionInfo,
+                    isLoggedIn: isLoggedIn,
                   ),
                 ],
               ),
@@ -904,6 +927,7 @@ class ActionButtons extends StatelessWidget {
   final String? mainImageUrl;
   final bool? isFitnessMode;
   final Map<String, double>? nutritionInfo;
+  final bool isLoggedIn;
 
   const ActionButtons({
     super.key,
@@ -916,6 +940,7 @@ class ActionButtons extends StatelessWidget {
     required this.mealTime,
     required this.amountPeople,
     required this.restrictDiet,
+    required this.isLoggedIn,
     this.mainImageUrl,
     this.isFitnessMode,
     this.nutritionInfo,
@@ -923,7 +948,6 @@ class ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = Supabase.instance.client.auth.currentUser != null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 800;

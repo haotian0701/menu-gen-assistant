@@ -46,8 +46,10 @@ class _AuthPageState extends State<AuthPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final usernameController = TextEditingController(); // Added for username
+  final _formKey = GlobalKey<FormState>();
   bool _isLogin = true; // To toggle between Login and Sign Up view
   bool _loading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -57,14 +59,108 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
+  void _clearError() {
+    if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email is required';
+    }
+    
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email address';
+    }
+    
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    
+    return null;
+  }
+
+  String? _validateUsername(String? value) {
+    if (!_isLogin) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Username is required';
+      }
+      
+      if (value.trim().length < 3) {
+        return 'Username must be at least 3 characters';
+      }
+      
+      final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+      if (!usernameRegex.hasMatch(value.trim())) {
+        return 'Username can only contain letters, numbers, and underscores';
+      }
+    }
+    
+    return null;
+  }
+
+  String _getReadableErrorMessage(String error) {
+    final lowerError = error.toLowerCase();
+    
+    if (lowerError.contains('invalid login credentials') || 
+        lowerError.contains('invalid_credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    
+    if (lowerError.contains('email not confirmed') || 
+        lowerError.contains('email_not_confirmed')) {
+      return 'Please check your email and click the confirmation link before signing in.';
+    }
+    
+    if (lowerError.contains('user already registered') || 
+        lowerError.contains('user_already_exists')) {
+      return 'An account with this email already exists. Try signing in instead.';
+    }
+    
+    if (lowerError.contains('weak password') || 
+        lowerError.contains('password')) {
+      return 'Password is too weak. Please use at least 6 characters.';
+    }
+    
+    if (lowerError.contains('invalid email') || 
+        lowerError.contains('email')) {
+      return 'Please enter a valid email address.';
+    }
+    
+    if (lowerError.contains('network') || 
+        lowerError.contains('connection')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    
+    if (lowerError.contains('rate limit') || 
+        lowerError.contains('too many')) {
+      return 'Too many attempts. Please wait a few minutes before trying again.';
+    }
+    
+    // If no specific error is matched, return a generic message
+    return 'An error occurred. Please try again later.';
+  }
+
   Future<void> _signUp() async {
-    if (usernameController.text.trim().isEmpty && !_isLogin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username cannot be empty for sign-up.')),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
+    
+    _clearError();
     setState(() => _loading = true);
+    
     try {
       final res = await supabase.auth.signUp(
         email: emailController.text.trim(),
@@ -74,38 +170,61 @@ class _AuthPageState extends State<AuthPage> {
           'username': usernameController.text.trim(),
         },
       );
+      
       if (mounted) {
-        if (res.user != null) {
+        if (res.user != null && res.session != null) {
+          // User is immediately signed in
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sign-up successful! Please log in.')),
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Account created successfully!'),
+                ],
+              ),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+          Navigator.pop(context);
+        } else if (res.user != null && res.session == null) {
+          // Email confirmation required
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.email, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Please check your email and click the confirmation link to activate your account.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFF3B82F6),
+              duration: Duration(seconds: 5),
+            ),
           );
           setState(() {
             _isLogin = true; // Switch to login view after successful sign up
             passwordController.clear(); // Clear password for login
           });
-        } else if (res.session == null && res.user == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Sign-up successful! Check your email for verification.')),
-          );
-          setState(() {
-            _isLogin = true;
-            passwordController.clear();
-          });
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(res.user?.toString() ??
-                    'Sign-up failed. User might already exist or email needs confirmation.')),
-          );
+          setState(() {
+            _errorMessage = 'Sign-up failed. Please try again.';
+          });
         }
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _getReadableErrorMessage(e.message);
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error during sign-up: $e')),
-        );
+        setState(() {
+          _errorMessage = _getReadableErrorMessage(e.toString());
+        });
       }
     } finally {
       if (mounted) {
@@ -115,17 +234,36 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    _clearError();
     setState(() => _loading = true);
+    
     try {
       final res = await supabase.auth.signInWithPassword(
         email: emailController.text.trim(),
         password: passwordController.text,
       );
+      
       if (mounted) {
-        if (res.user != null) {
+        if (res.user != null && res.session != null) {
+          // Successful login
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Welcome back!'),
+                ],
+              ),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+          
           // Navigate back to the previous page or to UploadImagePage
-          // If AuthPage was pushed, Navigator.pop(context) is enough
-          // If it's a replacement, then pushReplacement to UploadImagePage
           if (Navigator.canPop(context)) {
             Navigator.pop(context);
           } else {
@@ -135,16 +273,22 @@ class _AuthPageState extends State<AuthPage> {
             );
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login failed. Check credentials.')),
-          );
+          setState(() {
+            _errorMessage = 'Login failed. Please check your credentials.';
+          });
         }
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _getReadableErrorMessage(e.message);
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error during login: $e')),
-        );
+        setState(() {
+          _errorMessage = _getReadableErrorMessage(e.toString());
+        });
       }
     } finally {
       if (mounted) {
@@ -176,51 +320,113 @@ class _AuthPageState extends State<AuthPage> {
             ),
             child: _loading
                 ? const AnimatedLoadingWidget(type: LoadingType.loading)
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (!_isLogin)
-                        TextField(
-                          controller: usernameController,
-                          decoration:
-                              const InputDecoration(labelText: 'Username'),
+                : Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!_isLogin)
+                          TextFormField(
+                            controller: usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              border: OutlineInputBorder(),
+                            ),
+                            textInputAction: TextInputAction.next,
+                            validator: _validateUsername,
+                            onChanged: (_) => _clearError(),
+                          ),
+                        if (!_isLogin) const SizedBox(height: 16),
+                        TextFormField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
+                          validator: _validateEmail,
+                          onChanged: (_) => _clearError(),
                         ),
-                      if (!_isLogin) const SizedBox(height: 8),
-                      TextField(
-                        controller: emailController,
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: passwordController,
-                        decoration:
-                            const InputDecoration(labelText: 'Password'),
-                        obscureText: true,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _isLogin ? _login() : _signUp(),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _isLogin ? _login : _signUp,
-                        child: Text(_isLogin ? 'Log In' : 'Sign Up'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLogin = !_isLogin;
-                          });
-                        },
-                        child: Text(
-                          _isLogin
-                              ? 'Need an account? Sign Up'
-                              : 'Have an account? Log In',
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                          ),
+                          obscureText: true,
+                          textInputAction: TextInputAction.done,
+                          validator: _validatePassword,
+                          onChanged: (_) => _clearError(),
+                          onFieldSubmitted: (_) => _isLogin ? _login() : _signUp(),
                         ),
-                      ),
-                    ],
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _isLogin ? _login : _signUp,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            _isLogin ? 'Log In' : 'Sign Up',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            _clearError();
+                            setState(() {
+                              _isLogin = !_isLogin;
+                              // Clear form when switching modes
+                              if (_isLogin) {
+                                usernameController.clear();
+                              }
+                            });
+                          },
+                          child: Text(
+                            _isLogin
+                                ? 'Need an account? Sign Up'
+                                : 'Have an account? Log In',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),

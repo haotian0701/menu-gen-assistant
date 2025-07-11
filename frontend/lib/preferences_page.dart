@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'animated_loading.dart';
 
 class PreferencesPage extends StatefulWidget {
@@ -132,11 +133,27 @@ class _PreferencesPageState extends State<PreferencesPage> {
   late String _selectedFitnessGoal;
 
   bool _loading = true;
+  late final StreamSubscription<AuthState> _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _initLoad();
+    
+    // Listen for auth state changes
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      // Reload preferences when auth state changes
+      _initLoad();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    heightCtrl.dispose();
+    weightCtrl.dispose();
+    ageCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _initLoad() async {
@@ -245,13 +262,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     }
   }
   
-  @override
-  void dispose() {
-    heightCtrl.dispose();
-    weightCtrl.dispose();
-    ageCtrl.dispose();
-    super.dispose();
-  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(

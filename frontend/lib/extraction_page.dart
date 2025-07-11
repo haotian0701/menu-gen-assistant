@@ -48,6 +48,7 @@ class ExtractionPage extends StatefulWidget {
 class _ExtractionPageState extends State<ExtractionPage> {
   late ExtractionController _extractionController;
   bool _disposed = false;
+  late final StreamSubscription<AuthState> _authSubscription;
 
   @override
   void initState() {
@@ -66,11 +67,20 @@ class _ExtractionPageState extends State<ExtractionPage> {
       initialKitchenTools: widget.initialKitchenTools,
       mode: widget.mode, 
     );
+    
+    // Listen for auth state changes
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      // Refresh user preferences when auth state changes
+      if (!_disposed) {
+        _extractionController.refreshUserPreferences();
+      }
+    });
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _authSubscription.cancel();
     _extractionController.dispose();
     super.dispose();
   }
@@ -614,6 +624,71 @@ class ExtractionController extends ChangeNotifier {
     if (_disposed) return;
     _detectedItems = items;
     notifyListeners();
+  }
+
+  Future<void> refreshUserPreferences() async {
+    // Only refresh if user preferences are relevant for the current state
+    // Don't reload if we have explicit initial values (like when regenerating)
+    if (initialMealType != null || initialDietaryGoal != null) {
+      return; // Skip refresh if this is a regeneration with specific values
+    }
+    
+    final prefs = await _loadUserPreferences();
+    
+    // Update selections only if they haven't been explicitly set
+    bool updated = false;
+    
+    final newMeal = prefs['meal_type'] ?? _mealTypes.first;
+    if (_selectedMeal != newMeal && _mealTypes.contains(newMeal)) {
+      _selectedMeal = newMeal;
+      updated = true;
+    }
+    
+    final newGoal = prefs['dietary_goal'] ?? _dietaryGoals.first;
+    if (_selectedGoal != newGoal && _dietaryGoals.contains(newGoal)) {
+      _selectedGoal = newGoal;
+      updated = true;
+    }
+    
+    final newTime = prefs['meal_time'] ?? _mealTimeOptions.first;
+    if (_selectedTime != newTime && _mealTimeOptions.contains(newTime)) {
+      _selectedTime = newTime;
+      updated = true;
+    }
+    
+    final newPeople = prefs['amount_people'] ?? _amountPeopleOptions.first;
+    if (_selectedPeople != newPeople && _amountPeopleOptions.contains(newPeople)) {
+      _selectedPeople = newPeople;
+      updated = true;
+    }
+    
+    final newDiet = prefs['restrict_diet'] ?? 'None';
+    if (_selectedDiet != newDiet && _restrictDietOptions.contains(newDiet)) {
+      _selectedDiet = newDiet;
+      updated = true;
+    }
+    
+    final newRegion = prefs['preferred_region'] ?? _preferredRegions.first;
+    if (_selectedRegion != newRegion && _preferredRegions.contains(newRegion)) {
+      _selectedRegion = newRegion;
+      updated = true;
+    }
+    
+    final newSkill = prefs['skill_level'] ?? _skillLevels.first;
+    if (_selectedSkill != newSkill && _skillLevels.contains(newSkill)) {
+      _selectedSkill = newSkill;
+      updated = true;
+    }
+    
+    final newTools = (prefs['kitchen_tools'] as List?)?.cast<String>().toSet() ?? <String>{};
+    if (_selectedKitchenTools != newTools) {
+      _selectedKitchenTools = newTools;
+      updated = true;
+    }
+    
+    if (updated) {
+      notifyListeners();
+    }
   }
 
   @override

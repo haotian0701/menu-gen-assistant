@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'recipe_page.dart';
 import 'account_icon_button.dart';
 import 'main.dart'; // For AuthPage
@@ -17,11 +18,24 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _records = [];
+  late final StreamSubscription<AuthState> _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadSavedRecipes();
+    
+    // Listen for auth state changes
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      // Reload saved recipes when auth state changes
+      _loadSavedRecipes();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   Future<void> _loadSavedRecipes() async {

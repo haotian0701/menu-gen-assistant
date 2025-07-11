@@ -1,6 +1,7 @@
 // lib/history_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'recipe_page.dart';
 import 'account_icon_button.dart'; // Import the new widget
 import 'main.dart'; // For AuthPage
@@ -18,11 +19,24 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _records = [];
+  late final StreamSubscription<AuthState> _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    
+    // Listen for auth state changes
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      // Reload history when auth state changes
+      _loadHistory();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   Future<void> _loadHistory() async {
