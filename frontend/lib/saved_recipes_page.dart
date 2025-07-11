@@ -75,6 +75,21 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
     }
   }
 
+  // Helper function to decode HTML entities
+  String _decodeHtmlEntities(String text) {
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&copy;', '©')
+        .replaceAll('&reg;', '®')
+        .replaceAll('&trade;', '™');
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = _supabase.auth.currentUser;
@@ -120,6 +135,8 @@ class _SavedRecipesPageState extends State<SavedRecipesPage> {
                             final createdAt = _formatDate(rec['created_at'] as String);
                             var title = (rec['recipe_title'] as String?)?.trim() ?? '';
                             if (title.isEmpty) title = 'Untitled Recipe';
+                            // Decode HTML entities in the title
+                            title = _decodeHtmlEntities(title);
                             return ListTile(
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(6),

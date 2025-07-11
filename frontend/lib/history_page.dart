@@ -158,7 +158,9 @@ class _HistoryPageState extends State<HistoryPage> {
           final match = RegExp(r"<h1[^>]*>(.*?)<\/h1>", caseSensitive: false)
               .firstMatch(rawHtml);
           title = match?.group(1)?.trim() ?? 'Untitled Recipe';
-        } 
+        }
+        // Decode HTML entities in the title
+        title = _decodeHtmlEntities(title); 
         children.add(
           ListTile(
             leading: ClipRRect(
@@ -217,4 +219,19 @@ class _HistoryPageState extends State<HistoryPage> {
       children: children,
     );
   }
+}
+
+// Helper function to decode HTML entities
+String _decodeHtmlEntities(String text) {
+  return text
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&apos;', "'")
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&copy;', '©')
+      .replaceAll('&reg;', '®')
+      .replaceAll('&trade;', '™');
 }

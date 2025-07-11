@@ -328,7 +328,22 @@ void dispose() {
   // Helper to extract title from generated HTML
   String _extractTitleFromHtml(String html) {
     final match = RegExp(r"<h1[^>]*>(.*?)<\\/h1>", caseSensitive: false).firstMatch(html);
-    return match?.group(1)?.trim() ?? '';
+    final rawTitle = match?.group(1)?.trim() ?? '';
+    return _decodeHtmlEntities(rawTitle);
+  }
+
+  String _decodeHtmlEntities(String text) {
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&copy;', '©')
+        .replaceAll('&reg;', '®')
+        .replaceAll('&trade;', '™');
   }
 
 @override
