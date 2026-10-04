@@ -4,15 +4,20 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import sanitizeHtml from "npm:sanitize-html";
 // Simple in-memory throttle: IP ➜ last request timestamp
-const lastRequestMap = new Map();
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const lastRequestMap = new Map<string, number>();
+function requireEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+const SUPABASE_URL = requireEnv('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // === Added: helper + fallback for main image URL validation ===
 const FALLBACK_IMAGE_URL = "https://via.placeholder.com/640x480.png?text=Recipe+Image";
 // Maximum image size we allow to download (bytes)
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
-function isPrivateIp(hostname) {
+function isPrivateIp(hostname: string) {
   // Reject obvious private IPv4 ranges. This is a heuristic; tighten if needed.
   const m = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
   if (!m) return false;
@@ -20,7 +25,7 @@ function isPrivateIp(hostname) {
   const [a, b] = parts;
   return a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168;
 }
-async function validateImageUrl(url) {
+async function validateImageUrl(url: string): Promise<string | null> {
   try {
     const u = new URL(url);
     if (u.protocol !== "https:") return null; // HTTPS only
@@ -43,19 +48,19 @@ async function validateImageUrl(url) {
     return null;
   }
 }
-function extractRecipeTitle(html) {
+function extractRecipeTitle(html: string) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
 }
 // Helper function to extract JSON safely from potential markdown code blocks
-function extractLabelsFromJson(jsonString) {
+function extractLabelsFromJson(jsonString: string) {
   try {
     // Remove potential markdown code block fences and trim whitespace
     const cleanedJsonString = jsonString.replace(/```json\n?/, "").replace(/```$/, "").trim();
     const data = JSON.parse(cleanedJsonString);
     const items = data.detected_items || [];
     // Extract labels just for logging or potential future use, but return full items
-    const labels = items.map((item)=>item?.item_label).filter((label)=>label !== undefined);
+    const labels = items.map((item: any)=>item?.item_label).filter((label: string | undefined)=>label !== undefined);
     return {
       labels,
       items
@@ -69,7 +74,7 @@ function extractLabelsFromJson(jsonString) {
   }
 }
 // Helper to clean Gemini's JSON output for candidate list
-function cleanGeminiJsonResponse(rawText) {
+function cleanGeminiJsonResponse(rawText: string) {
   return rawText.replace(/```json\n?/, '').replace(/```$/, '').trim();
 }
 // Helper to extract nutrition info
@@ -89,12 +94,19 @@ function extractNutritionInfo(html: string) {
   return info;
 }
 // Environment variables
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
 const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
 const GOOGLE_SEARCH_CX = Deno.env.get("GOOGLE_SEARCH_CX");
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent";
-const GEMINI_TEXT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent";
+const GEMINI_TEXT_MODEL = Deno.env.get("GEMINI_TEXT_MODEL") || "gemini-3.1-flash-lite";
+const GEMINI_VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") || GEMINI_TEXT_MODEL;
+const GEMINI_IMAGE_MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-3.1-flash-lite-image";
+const ENABLE_AI_IMAGE_GENERATION =
+  Deno.env.get("ENABLE_AI_IMAGE_GENERATION")?.toLowerCase() === "true";
+const geminiEndpoint = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+const GEMINI_VISION_ENDPOINT = geminiEndpoint(GEMINI_VISION_MODEL);
+const GEMINI_TEXT_ENDPOINT = geminiEndpoint(GEMINI_TEXT_MODEL);
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
@@ -164,7 +176,7 @@ const KITCHEN_TOOLS = [
 // Manual-label text validation
 const LABEL_REGEX = /^[a-zA-Z0-9 ,.'()\-]{1,30}$/;
 // Helper to build consistent error responses
-function respondError(status, message, userError = false) {
+function respondError(status: number, message: string, userError = false) {
   return new Response(JSON.stringify({
     error: message,
     user_error: userError
@@ -177,9 +189,9 @@ function respondError(status, message, userError = false) {
   });
 }
 // Gemini image generation endpoint
-const GEMINI_IMAGE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent";
-async function generateDishImage(title) {
-  if (!GEMINI_API_KEY) return null;
+const GEMINI_IMAGE_ENDPOINT = geminiEndpoint(GEMINI_IMAGE_MODEL);
+async function generateDishImage(title: string) {
+  if (!ENABLE_AI_IMAGE_GENERATION || !GEMINI_API_KEY) return null;
   const prompt = `Food photography of ${title}, plated on a neutral background, studio lighting`;
   try {
     const resp = await fetch(GEMINI_IMAGE_ENDPOINT, {
@@ -189,28 +201,33 @@ async function generateDishImage(title) {
         "x-goog-api-key": GEMINI_API_KEY
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash-preview-image-generation",
-        contents: prompt,
-        config: {
-          responseModalities: ["IMAGE"],
-        },
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          thinkingConfig: {
-            thinkingBudget: 0
-          }
+          responseModalities: ["TEXT", "IMAGE"]
         }
       })
     });
     if (!resp.ok) return null;
     const data = await resp.json();
-    const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (b64) return `data:image/png;base64,${b64}`;
+    const imagePart = data?.candidates?.[0]?.content?.parts?.find(
+      (part: any) => part?.inlineData?.data
+    );
+    const b64 = imagePart?.inlineData?.data;
+    const mimeType = imagePart?.inlineData?.mimeType || "image/png";
+    if (b64) return `data:${mimeType};base64,${b64}`;
     return null;
   } catch  {
     return null;
   }
 }
 serve(async (req)=>{
+  // CORS preflight must not consume the request throttle window.
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders
+    });
+  }
+
   // ──────────────────────────────────────────────────────────
   // Throttle: 1 request per IP per 5 s to protect Gemini quota
   // ──────────────────────────────────────────────────────────
@@ -229,12 +246,6 @@ serve(async (req)=>{
     });
   }
   lastRequestMap.set(ip, now);
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders
-    });
-  }
   // ──────────────────────────────────────────────────────────
   // Authentication – optional: derive user if JWT present
   // ──────────────────────────────────────────────────────────
@@ -284,10 +295,9 @@ serve(async (req)=>{
     }
     // Handle the new neutral 'general' option
     const mealTypeForPrompt = !meal_type || meal_type.toLowerCase() === 'general' ? 'not specified' : meal_type;
-    if (!image_url && !(manual_labels && manual_labels.length > 0 && mode === 'extract_only')) {
-      if (!image_url) {
-        return respondError(400, "Missing 'image_url' in request body", true);
-      }
+    const hasManualLabels = Array.isArray(manual_labels) && manual_labels.length > 0;
+    if (!image_url && !hasManualLabels) {
+      return respondError(400, "Missing 'image_url' or 'manual_labels' in request body", true);
     }
     // Validate incoming image URL early
     if (image_url) {
@@ -359,7 +369,10 @@ Instructions:
               }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          maxOutputTokens: 1024
+        }
       };
       const visionResp = await fetch(GEMINI_VISION_ENDPOINT, {
         method: "POST",
@@ -377,11 +390,11 @@ Instructions:
       const visionData = await visionResp.json();
       const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const parsedVisionItems = extractLabelsFromJson(visionText).items;
-      sourceItems = parsedVisionItems.map((item)=>({
+      sourceItems = parsedVisionItems.map((item: any)=>({
           ...item,
           _source_quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1
         })); // Use quantity from Vision if available
-      console.log("Raw detected items from Vision API:", sourceItems.map((i)=>`${i._source_quantity} ${i.item_label}`).join(", "));
+      console.log("Raw detected items from Vision API:", sourceItems.map((i: any)=>`${i._source_quantity} ${i.item_label}`).join(", "));
     } else {
       // Should not happen if checks above are correct, but as a fallback
       return respondError(400, "Missing 'image_url' or 'manual_labels' in request body", true);
@@ -487,7 +500,10 @@ Instructions:
                 }
               ]
             }
-          ]
+          ],
+          generationConfig: {
+            maxOutputTokens: 2048
+          }
         })
       });
       if (!fitnessResp.ok) {
@@ -539,7 +555,7 @@ Instructions:
         nutrition_info = extractNutritionInfo(fitnessHtml);
       }
       // Continue with title extraction on cleaned HTML
-      function extractTitle(html) {
+      function extractTitle(html: string) {
         const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
         return m ? m[1].trim() : "";
       }
@@ -559,18 +575,18 @@ Instructions:
                 candidateUrl = await validateImageUrl(httpsVersion);
               }
             }
-            main_image_url = candidateUrl ?? FALLBACK_IMAGE_URL;
+            main_image_url = candidateUrl ?? main_image_url;
           }
         } catch (imgErr) {
-          main_image_url = FALLBACK_IMAGE_URL;
+          main_image_url = null;
         }
       } else {
-        main_image_url = FALLBACK_IMAGE_URL;
+        main_image_url = null;
       }
       // Ensure image generation fallback for fitness mode
       if (!main_image_url) {
         main_image_url = await generateDishImage(dishTitle || "dish");
-        if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
+        if (!main_image_url) main_image_url = image_url || FALLBACK_IMAGE_URL;
       }
       // Persist fitness run in history table
       if (derived_user_id) {
@@ -683,7 +699,10 @@ Instructions:
                 }
               ]
             }
-          ]
+          ],
+          generationConfig: {
+            maxOutputTokens: 512
+          }
         })
       });
       if (!candidateResp.ok) {
@@ -812,7 +831,10 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
               }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          maxOutputTokens: 2048
+        }
       })
     });
     if (!recipeResp.ok) {
@@ -845,7 +867,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     });
     // ====== YouTube Video Search Integration ======
     // Helper to extract the dish title from <h1>
-    function extractTitle1(html) {
+    function extractTitle1(html: string) {
       const m = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
       return m ? m[1].trim() : "";
     }
@@ -884,7 +906,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
               candidateUrl = await validateImageUrl(httpsVersion);
             }
           }
-          main_image_url = candidateUrl ?? null;
+          main_image_url = candidateUrl ?? main_image_url;
           console.log("Main image URL (validated)", main_image_url ?? "<none>");
         } else {
           console.warn("Google Image API search failed:", await imgResp.text());
@@ -908,7 +930,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     // Ensure main_image_url is set (fallback generation + placeholder)
     if (!main_image_url) {
       main_image_url = await generateDishImage(dishTitle || "dish");
-      if (!main_image_url) main_image_url = FALLBACK_IMAGE_URL;
+      if (!main_image_url) main_image_url = image_url || FALLBACK_IMAGE_URL;
     }
     // Persist user history
     if (derived_user_id) {
@@ -949,7 +971,7 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
   } catch (error) {
     console.error("Unhandled error in Edge Function:", error);
     return new Response(JSON.stringify({
-      error: error.message || "An internal server error occurred."
+      error: error instanceof Error ? error.message : "An internal server error occurred."
     }), {
       status: 500,
       headers: {

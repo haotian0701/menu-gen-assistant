@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "krvnkbsxrcwatmspecbw"
+project_id = "cookpilot"
 
 [api]
 enabled = true
@@ -309,6 +309,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.generate_recipe]
 enabled = true
+# Keep gateway JWT verification enabled so arbitrary unauthenticated requests
+# cannot consume the project's Gemini quota. Guest calls use the legacy anon
+# JWT key; signed-in calls use the user's access token.
 verify_jwt = true
 import_map = "./functions/generate_recipe/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.

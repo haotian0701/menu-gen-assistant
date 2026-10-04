@@ -1,3 +1,9 @@
 .vscode/launch.json
 frontend/**/flutter/
 frontend/**/Flutter/
+frontend/config/*.json
+!frontend/config/*.example.json
+backend/supabase/.env
+.dart-appdata/
+*.storage.zip
+frontend/cookpilot-netlify-*.zip

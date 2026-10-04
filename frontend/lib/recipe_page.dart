@@ -143,17 +143,17 @@ String _htmlToPlainText(String html) {
   text = _decodeHtmlEntities(text);
   
   // Convert headings to formatted text
-  text = text.replaceAllMapped(RegExp(r'<h1[^>]*>(.*?)</h1>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<h1[^>]*>([\s\S]*?)</h1>', caseSensitive: false), (match) {
     final title = match.group(1)?.trim() ?? '';
     return '$title\n${'=' * title.length}\n';
   });
   
-  text = text.replaceAllMapped(RegExp(r'<h2[^>]*>(.*?)</h2>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<h2[^>]*>([\s\S]*?)</h2>', caseSensitive: false), (match) {
     final title = match.group(1)?.trim() ?? '';
     return '\n$title\n${'-' * title.length}\n';
   });
   
-  text = text.replaceAllMapped(RegExp(r'<h3[^>]*>(.*?)</h3>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<h3[^>]*>([\s\S]*?)</h3>', caseSensitive: false), (match) {
     return '\n${match.group(1)?.trim()}\n';
   });
   
@@ -164,12 +164,12 @@ String _htmlToPlainText(String html) {
   text = text.replaceAll(RegExp(r'</ol>', caseSensitive: false), '\n');
   
   // Convert list items
-  text = text.replaceAllMapped(RegExp(r'<li[^>]*>(.*?)</li>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<li[^>]*>([\s\S]*?)</li>', caseSensitive: false), (match) {
     return '• ${match.group(1)?.trim()}\n';
   });
   
   // Convert paragraphs
-  text = text.replaceAllMapped(RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<p[^>]*>([\s\S]*?)</p>', caseSensitive: false), (match) {
     return '${match.group(1)?.trim()}\n\n';
   });
   
@@ -177,11 +177,11 @@ String _htmlToPlainText(String html) {
   text = text.replaceAll(RegExp(r'<br[^>]*/?>', caseSensitive: false), '\n');
   
   // Convert bold and italic (preserve formatting with symbols)
-  text = text.replaceAllMapped(RegExp(r'<(strong|b)[^>]*>(.*?)</\1>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<(strong|b)[^>]*>([\s\S]*?)</\1>', caseSensitive: false), (match) {
     return '**${match.group(2)?.trim()}**';
   });
   
-  text = text.replaceAllMapped(RegExp(r'<(em|i)[^>]*>(.*?)</\1>', caseSensitive: false, dotAll: true), (match) {
+  text = text.replaceAllMapped(RegExp(r'<(em|i)[^>]*>([\s\S]*?)</\1>', caseSensitive: false), (match) {
     return '*${match.group(2)?.trim()}*';
   });
   
@@ -203,15 +203,15 @@ String _stripNutritionInfo(String html) {
   
   // Remove fenced JSON blocks
   cleaned = cleaned.replaceAll(RegExp(r'```json\s*\{[^}]*"nutrition_info"[^}]*\}\s*```', 
-      multiLine: true, dotAll: true), '');
+      multiLine: true), '');
   
   // Remove plain JSON objects containing nutrition_info
   cleaned = cleaned.replaceAll(RegExp(r'\{\s*"nutrition_info"\s*:\s*\{[^}]*\}\s*\}', 
-      multiLine: true, dotAll: true), '');
+      multiLine: true), '');
   
   // Remove any standalone nutrition_info objects
   cleaned = cleaned.replaceAll(RegExp(r'\{[^}]*"calories"[^}]*"protein"[^}]*"carbs"[^}]*"fat"[^}]*\}', 
-      multiLine: true, dotAll: true), '');
+      multiLine: true), '');
   
   // Clean up extra whitespace and line breaks
   cleaned = cleaned.replaceAll(RegExp(r'\n\s*\n\s*\n'), '\n\n');
@@ -223,7 +223,7 @@ String _stripNutritionInfo(String html) {
 String _removeTitleFromHtml(String html) {
   // Remove the first h1 tag (title) from the HTML content
   // This prevents duplicate title display since we show it separately
-  return html.replaceFirst(RegExp(r'<h1[^>]*>.*?</h1>', caseSensitive: false, dotAll: true), '').trim();
+  return html.replaceFirst(RegExp(r'<h1[^>]*>[\s\S]*?</h1>', caseSensitive: false), '').trim();
 }
 
 // =============================================================================
@@ -291,8 +291,8 @@ class _RecipePageState extends State<RecipePage> {
         .replaceAll('&nbsp;', ' ')
         .trim();
 
-    final preRegex = RegExp(r"^\s*<pre[^>]*>(.*)<\/pre>\s*$",
-        caseSensitive: false, dotAll: true);
+    final preRegex = RegExp(r"^\s*<pre[^>]*>([\s\S]*)<\/pre>\s*$",
+        caseSensitive: false);
     final preMatch = preRegex.firstMatch(tempRecipe);
 
     if (preMatch != null) {

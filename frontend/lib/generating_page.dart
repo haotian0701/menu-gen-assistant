@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'app_config.dart';
 import 'error_utils.dart';
 import 'recipe_page.dart';
 import 'animated_loading.dart';
@@ -104,8 +105,7 @@ void dispose() {
     // Correctly access the user's token from the current session
     final session = client.auth.currentSession;
     final accessToken = session?.accessToken;
-    final anonKey =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
+    const anonKey = AppConfig.supabaseAnonKey;
 
     // Ensure we have either an access token or the anon key for the Authorization header
     if (accessToken == null && anonKey.isEmpty) {
@@ -119,9 +119,7 @@ void dispose() {
       return;
     }
 
-    final uri = Uri.parse(
-      'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
-    );
+    final uri = AppConfig.generateRecipeUri;
 
     try {
       final body = <String, dynamic>{
@@ -152,6 +150,7 @@ void dispose() {
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
+        'apikey': anonKey,
         'Authorization':
             'Bearer ${accessToken ?? anonKey}', // Use accessToken or fallback to anonKey
       };
@@ -193,11 +192,9 @@ void dispose() {
   final client = supabaseInstance.client;
   final session = client.auth.currentSession;
   final accessToken = session?.accessToken;
-  final anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
+  const anonKey = AppConfig.supabaseAnonKey;
 
-  final uri = Uri.parse(
-    'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
-  );
+  final uri = AppConfig.generateRecipeUri;
   setState(() {
     _progress = 0.35;
   });
@@ -288,6 +285,7 @@ void dispose() {
 
   final headers = <String, String>{
     'Content-Type': 'application/json',
+    'apikey': anonKey,
     'Authorization': 'Bearer ${accessToken ?? anonKey}',
   };
 

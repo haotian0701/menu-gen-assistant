@@ -3,16 +3,22 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app_config.dart';
 import 'upload_page.dart'; // Ensure this is the correct import for UploadImagePage
 import 'animated_loading.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  final configurationError = AppConfig.configurationError;
+  if (configurationError != null) {
+    runApp(ConfigurationErrorApp(message: configurationError));
+    return;
+  }
+
   await Supabase.initialize(
-    url: 'https://krvnkbsxrcwatmspecbw.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE',
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
     debug: true,
   );
 
@@ -20,6 +26,31 @@ void main() async {
 }
 
 final supabase = Supabase.instance.client;
+
+class ConfigurationErrorApp extends StatelessWidget {
+  const ConfigurationErrorApp({required this.message, super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SelectableText(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -197,24 +228,9 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _loading = true);
     
     try {
-      // Use your actual production URL here
-      const productionUrl = 'https://stirring-bunny-e01568.netlify.app/'; // Replace with your actual URL
-      
-      // Determine the correct redirect URL based on environment
-      String redirectUrl;
-      final currentUrl = Uri.base.toString();
-      
-      if (currentUrl.contains('localhost')) {
-        // Development environment
-        redirectUrl = 'http://localhost:3000/';
-      } else {
-        // Production environment
-        redirectUrl = productionUrl;
-      }
-      
       await supabase.auth.signInWithOAuth(
         OAuthProvider.github,
-        redirectTo: redirectUrl,
+        redirectTo: AppConfig.authRedirectUrl,
       );
       
       // The redirect will be handled automatically by Supabase

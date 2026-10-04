@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'app_config.dart';
 import 'error_utils.dart';
 
 import 'generating_page.dart';
@@ -364,25 +365,25 @@ class ExtractionController extends ChangeNotifier {
     final prefs = await _loadUserPreferences();
 
     // Initialize selected options
-    _selectedMeal = (initialMealType != null && _mealTypes.contains(initialMealType))
+    _selectedMeal = (initialMealType != null && _mealTypes.contains(initialMealType!))
         ? initialMealType!
         : (prefs['meal_type'] ?? _mealTypes.first);
 
-    _selectedGoal = (initialDietaryGoal != null && _dietaryGoals.contains(initialDietaryGoal))
+    _selectedGoal = (initialDietaryGoal != null && _dietaryGoals.contains(initialDietaryGoal!))
         ? initialDietaryGoal!
         : (prefs['dietary_goal'] ?? _dietaryGoals.first);
 
-    _selectedTime = (initialMealTime != null && _mealTimeOptions.contains(initialMealTime))
+    _selectedTime = (initialMealTime != null && _mealTimeOptions.contains(initialMealTime!))
         ? initialMealTime!
         : (prefs['meal_time'] ?? _mealTimeOptions.first);
 
-    _selectedPeople = (initialAmountPeople != null && _amountPeopleOptions.contains(initialAmountPeople))
+    _selectedPeople = (initialAmountPeople != null && _amountPeopleOptions.contains(initialAmountPeople!))
         ? initialAmountPeople!
         : (prefs['amount_people'] ?? _amountPeopleOptions.first);
 
     if (initialRestrictDiet != null &&
         initialRestrictDiet!.isNotEmpty &&
-        _restrictDietOptions.contains(initialRestrictDiet)) {
+        _restrictDietOptions.contains(initialRestrictDiet!)) {
       _selectedDiet = initialRestrictDiet!;
     } else {
       _selectedDiet = prefs['restrict_diet'] ?? 'None';
@@ -528,16 +529,14 @@ class ExtractionController extends ChangeNotifier {
     final client = supabaseInstance.client;
     final session = client.auth.currentSession;
     final accessToken = session?.accessToken;
-    final anonKey =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtydm5rYnN4cmN3YXRtc3BlY2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwMzk2MjEsImV4cCI6MjA2MDYxNTYyMX0.ZzkcN4D3rXOjVkoTyTCq3GK7ArHNnYY6AfFB2_HXtNE";
+    const anonKey = AppConfig.supabaseAnonKey;
 
-    final uri = Uri.parse(
-      'https://krvnkbsxrcwatmspecbw.functions.supabase.co/generate_recipe',
-    );
+    final uri = AppConfig.generateRecipeUri;
 
     try {
       final headers = <String, String>{
         'Content-Type': 'application/json',
+        'apikey': anonKey,
         'Authorization': 'Bearer ${accessToken ?? anonKey}',
       };
 
