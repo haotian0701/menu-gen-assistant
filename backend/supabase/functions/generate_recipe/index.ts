@@ -48,34 +48,179 @@ async function validateImageUrl(url: string): Promise<string | null> {
     return null;
   }
 }
+function normalizeBoundingBox(box: any): Record<string, number> | null {
+  const keys = ['x_min', 'y_min', 'x_max', 'y_max'] as const;
+  const values = keys.map((key)=>Number(box?.[key]));
+  if (values.some((value)=>!Number.isFinite(value))) return null;
+  const largest = Math.max(...values);
+  const scale = largest <= 1 ? 1 : largest <= 100 ? 100 : 1000;
+  const normalized = Object.fromEntries(
+    keys.map((key, index)=>[key, Math.min(1, Math.max(0, values[index] / scale))]),
+  ) as Record<string, number>;
+  if (normalized.x_max <= normalized.x_min || normalized.y_max <= normalized.y_min) {
+    return null;
+  }
+  return normalized;
+}
 function extractRecipeTitle(html: string) {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
   return m ? m[1].trim() : 'Recipe';
 }
-// Helper function to extract JSON safely from potential markdown code blocks
-function extractLabelsFromJson(jsonString: string) {
-  try {
-    // Remove potential markdown code block fences and trim whitespace
-    const cleanedJsonString = jsonString.replace(/```json\n?/, "").replace(/```$/, "").trim();
-    const data = JSON.parse(cleanedJsonString);
-    const items = data.detected_items || [];
-    // Extract labels just for logging or potential future use, but return full items
-    const labels = items.map((item: any)=>item?.item_label).filter((label: string | undefined)=>label !== undefined);
-    return {
-      labels,
-      items
-    }; // Return both
-  } catch (e) {
-    console.error("Failed to parse JSON from Vision API:", e, "Raw text:", jsonString);
-    return {
-      labels: [],
-      items: []
-    };
-  }
-}
-// Helper to clean Gemini's JSON output for candidate list
+// Helpers for resilient Gemini calls and structured JSON parsing.
 function cleanGeminiJsonResponse(rawText: string) {
-  return rawText.replace(/```json\n?/, '').replace(/```$/, '').trim();
+  return rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+}
+type GeminiCallResult =
+  | {
+      ok: true;
+      text: string;
+      json?: unknown;
+      finishReason: string;
+    }
+  | {
+      ok: false;
+      upstreamStatus: number;
+      reason: 'rate_limit' | 'blocked' | 'invalid_response' | 'upstream';
+      detail: string;
+    };
+const GEMINI_RETRY_DELAYS_MS = [0, 1200, 3000];
+function extractGeminiText(data: any): string {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+  return parts
+    .map((part: any)=>typeof part?.text === 'string' ? part.text : '')
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+async function callGemini(
+  endpoint: string,
+  payload: Record<string, unknown>,
+  operation: string,
+  expectJson = false,
+): Promise<GeminiCallResult> {
+  let lastFailure: GeminiCallResult = {
+    ok: false,
+    upstreamStatus: 502,
+    reason: 'upstream',
+    detail: `${operation} did not complete.`,
+  };
+  for (let attempt = 0; attempt < GEMINI_RETRY_DELAYS_MS.length; attempt++) {
+    const delayMs = GEMINI_RETRY_DELAYS_MS[attempt];
+    if (delayMs > 0) await new Promise((resolve)=>setTimeout(resolve, delayMs));
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      lastFailure = {
+        ok: false,
+        upstreamStatus: 0,
+        reason: 'upstream',
+        detail: error instanceof Error ? error.message : String(error),
+      };
+      console.error(`${operation} network error (attempt ${attempt + 1}):`, lastFailure.detail);
+      continue;
+    }
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 1500);
+      const retryable = response.status === 429 || response.status >= 500;
+      lastFailure = {
+        ok: false,
+        upstreamStatus: response.status,
+        reason: response.status === 429 ? 'rate_limit' : 'upstream',
+        detail,
+      };
+      console.error(`${operation} API error ${response.status} (attempt ${attempt + 1}):`, detail);
+      if (retryable && attempt < GEMINI_RETRY_DELAYS_MS.length - 1) continue;
+      return lastFailure;
+    }
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (error) {
+      lastFailure = {
+        ok: false,
+        upstreamStatus: 502,
+        reason: 'invalid_response',
+        detail: `Gemini returned invalid response JSON: ${error instanceof Error ? error.message : String(error)}`,
+      };
+      console.error(`${operation} invalid API response (attempt ${attempt + 1}):`, lastFailure.detail);
+      continue;
+    }
+    const candidate = data?.candidates?.[0];
+    const finishReason = String(candidate?.finishReason || '');
+    const blockReason = String(data?.promptFeedback?.blockReason || '');
+    if (blockReason || ['SAFETY', 'BLOCKLIST', 'PROHIBITED_CONTENT'].includes(finishReason)) {
+      return {
+        ok: false,
+        upstreamStatus: 422,
+        reason: 'blocked',
+        detail: blockReason || finishReason,
+      };
+    }
+    const text = extractGeminiText(data);
+    if (!text) {
+      lastFailure = {
+        ok: false,
+        upstreamStatus: 502,
+        reason: 'invalid_response',
+        detail: `Empty Gemini response (finishReason: ${finishReason || 'unknown'}).`,
+      };
+      console.error(`${operation} empty response (attempt ${attempt + 1}):`, JSON.stringify({ finishReason, blockReason }));
+      continue;
+    }
+    if (finishReason === 'MAX_TOKENS') {
+      lastFailure = {
+        ok: false,
+        upstreamStatus: 502,
+        reason: 'invalid_response',
+        detail: 'Gemini output was truncated at the token limit.',
+      };
+      console.error(`${operation} truncated response (attempt ${attempt + 1}).`);
+      continue;
+    }
+    if (expectJson) {
+      try {
+        return {
+          ok: true,
+          text,
+          json: JSON.parse(cleanGeminiJsonResponse(text)),
+          finishReason,
+        };
+      } catch (error) {
+        lastFailure = {
+          ok: false,
+          upstreamStatus: 502,
+          reason: 'invalid_response',
+          detail: `Gemini returned malformed structured JSON: ${error instanceof Error ? error.message : String(error)}`,
+        };
+        console.error(`${operation} JSON parse error (attempt ${attempt + 1}):`, lastFailure.detail);
+        continue;
+      }
+    }
+    return { ok: true, text, finishReason };
+  }
+  return lastFailure;
+}
+function respondGeminiFailure(result: Extract<GeminiCallResult, { ok: false }>, fallbackMessage: string) {
+  if (result.reason === 'rate_limit') {
+    return respondError(503, 'The AI service is temporarily rate-limited. Please wait a moment and try again.', false);
+  }
+  if (result.reason === 'blocked') {
+    return respondError(422, 'The AI service could not process this input. Please try a different image or description.', true);
+  }
+  return respondError(502, fallbackMessage, false);
 }
 // Helper to extract nutrition info
 function extractNutritionInfo(html: string) {
@@ -107,6 +252,56 @@ const geminiEndpoint = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 const GEMINI_VISION_ENDPOINT = geminiEndpoint(GEMINI_VISION_MODEL);
 const GEMINI_TEXT_ENDPOINT = geminiEndpoint(GEMINI_TEXT_MODEL);
+const VISION_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    detected_items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          item_label: {
+            type: 'string',
+            description: 'A concise English name for the edible grocery item.',
+          },
+          quantity: {
+            type: 'integer',
+          },
+          additional_info: {
+            type: 'string',
+            description: 'A short visible descriptor or packaging text, or an empty string.',
+          },
+          bounding_box: {
+            type: 'object',
+            properties: {
+              x_min: { type: 'number', description: 'Left edge from 0.0 to 1.0.' },
+              y_min: { type: 'number', description: 'Top edge from 0.0 to 1.0.' },
+              x_max: { type: 'number', description: 'Right edge from 0.0 to 1.0.' },
+              y_max: { type: 'number', description: 'Bottom edge from 0.0 to 1.0.' },
+            },
+            required: ['x_min', 'y_min', 'x_max', 'y_max'],
+          },
+        },
+        required: ['item_label', 'quantity', 'additional_info', 'bounding_box'],
+      },
+    },
+  },
+  required: ['detected_items'],
+};
+const CANDIDATE_RESPONSE_SCHEMA = {
+  type: 'array',
+  minItems: 3,
+  maxItems: 3,
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      title: { type: 'string', description: 'A concise English dish name.' },
+      description: { type: 'string', description: 'One short sentence describing the dish.' },
+    },
+    required: ['title', 'description'],
+  },
+};
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 if (!GEMINI_API_KEY) {
   console.error("Missing GEMINI_API_KEY environment variable");
@@ -341,8 +536,8 @@ serve(async (req)=>{
 Instructions:
 1. Detect Grocery Items: Identify all distinct **edible** grocery items visible in the image. **Only include items that are clearly identifiable as food.** Ignore any non-food items or objects whose edibility is ambiguous. For items that appear in multiples (e.g., a pack of buns, several tomatoes), attempt to count the individual units if visually discernible and include this as 'quantity'. If it's a single item, quantity is 1.
 2. Classify Items: For each detected item, provide a general classification label (e.g., "Apple", "Milk", "Bread Rolls"). Don't include information about the packaging, e.g. Milk carton, or Mayonnaise jar. We are interested in the item itself, not the container.
-3. Determine Bounding Boxes: Provide bounding box coordinates in normalized format (x_min, y_min, x_max, y_max) for each identified item or group. If quantity > 1 for a single bounding box, this box should encompass the group.
-4. Output Format: Return results in valid JSON, no extra text. Ensure 'quantity' is an integer. If no edible grocery items are confidently detected, return an empty "detected_items" array.
+3. Determine Bounding Boxes: Provide bounding box coordinates as decimal values from 0.0 to 1.0 (x_min, y_min, x_max, y_max) for each identified item or group. Do not use a 0-100 or 0-1000 coordinate scale. If quantity > 1 for a single bounding box, this box should encompass the group.
+4. Output Format: Return results in valid JSON, no extra text. Ensure 'quantity' is an integer. Use an empty string for 'additional_info' when no useful descriptor or packaging text is visible. If no edible grocery items are confidently detected, return an empty "detected_items" array.
 
 {
   "detected_items": [
@@ -355,7 +550,7 @@ Instructions:
         "x_max": float,
         "y_max": float
       },
-      "extracted_text": "string | null"
+      "additional_info": "string"
     }
   ]
 }
@@ -371,27 +566,30 @@ Instructions:
           }
         ],
         generationConfig: {
-          maxOutputTokens: 1024
+          maxOutputTokens: 1024,
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+          responseJsonSchema: VISION_RESPONSE_SCHEMA,
         }
       };
-      const visionResp = await fetch(GEMINI_VISION_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY
-        },
-        body: JSON.stringify(visionPayload)
-      });
-      if (!visionResp.ok) {
-        const errText = await visionResp.text();
-        console.error("Vision API error:", errText);
-        return respondError(502, "Image-analysis service failed. Please try again.", false);
+      const visionResult = await callGemini(
+        GEMINI_VISION_ENDPOINT,
+        visionPayload,
+        'Ingredient extraction',
+        true,
+      );
+      if (!visionResult.ok) {
+        return respondGeminiFailure(visionResult, 'Image-analysis service failed. Please try again.');
       }
-      const visionData = await visionResp.json();
-      const visionText = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const parsedVisionItems = extractLabelsFromJson(visionText).items;
+      const parsedVision = visionResult.json as { detected_items?: unknown };
+      if (!Array.isArray(parsedVision?.detected_items)) {
+        console.error('Ingredient extraction returned a JSON value without detected_items.');
+        return respondError(502, 'Image-analysis service returned an invalid result. Please try again.', false);
+      }
+      const parsedVisionItems = parsedVision.detected_items;
       sourceItems = parsedVisionItems.map((item: any)=>({
           ...item,
+          bounding_box: normalizeBoundingBox(item?.bounding_box),
           _source_quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1
         })); // Use quantity from Vision if available
       console.log("Raw detected items from Vision API:", sourceItems.map((i: any)=>`${i._source_quantity} ${i.item_label}`).join(", "));
@@ -485,13 +683,9 @@ Instructions:
     After the HTML recipe above, append the JSON object {"nutrition_info":{"calories":number,"protein":number,"carbs":number,"fat":number}} immediately after the HTML without any code fences. Ensure the values in this JSON match the nutritional analysis in the HTML, and return only the HTML recipe followed by the JSON object.
 `.trim();
       // Gemini 
-      const fitnessResp = await fetch(GEMINI_TEXT_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY
-        },
-        body: JSON.stringify({
+      const fitnessResult = await callGemini(
+        GEMINI_TEXT_ENDPOINT,
+        {
           contents: [
             {
               parts: [
@@ -502,26 +696,17 @@ Instructions:
             }
           ],
           generationConfig: {
-            maxOutputTokens: 2048
+            maxOutputTokens: 4096,
+            temperature: 0.4,
           }
-        })
-      });
-      if (!fitnessResp.ok) {
-        const errText = await fitnessResp.text();
-        return new Response(JSON.stringify({
-          error: "Fitness recipe generation failed",
-          detail: errText
-        }), {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json"
-          }
-        });
+        },
+        'Fitness recipe generation',
+      );
+      if (!fitnessResult.ok) {
+        return respondGeminiFailure(fitnessResult, 'Fitness recipe generation failed. Please try again.');
       }
-      const fitnessData = await fitnessResp.json();
       // Get full response text (HTML + JSON block)
-      const fullResponse = fitnessData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate fitness recipe.</p>";
+      const fullResponse = fitnessResult.text;
       // Extract nutrition_info JSON (support both fenced and plain JSON) and strip it from the returned HTML
       let nutrition_info = { calories: 0, protein: 0, carbs: 0, fat: 0 };
       let fitnessHtml = fullResponse;
@@ -684,13 +869,9 @@ Instructions:
       ... 2 more objects ...
     ]
     `.trim();
-      const candidateResp = await fetch(GEMINI_TEXT_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY
-        },
-        body: JSON.stringify({
+      const candidateResult = await callGemini(
+        GEMINI_TEXT_ENDPOINT,
+        {
           contents: [
             {
               parts: [
@@ -701,25 +882,22 @@ Instructions:
             }
           ],
           generationConfig: {
-            maxOutputTokens: 512
+            maxOutputTokens: 512,
+            temperature: 0.6,
+            responseMimeType: 'application/json',
+            responseJsonSchema: CANDIDATE_RESPONSE_SCHEMA,
           }
-        })
-      });
-      if (!candidateResp.ok) {
-        const errText = await candidateResp.text();
-        return respondError(502, "Could not generate recipe candidates. Please retry.", false);
+        },
+        'Recipe candidate generation',
+        true,
+      );
+      if (!candidateResult.ok) {
+        return respondGeminiFailure(candidateResult, 'Could not generate recipe candidates. Please retry.');
       }
-      const candidateData = await candidateResp.json();
-      let candidateList = [];
-      try {
-        const rawText = candidateData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-        const cleanedText = cleanGeminiJsonResponse(rawText);
-        candidateList = JSON.parse(cleanedText);
-        console.log("Gemini candidate response raw text:", rawText);
-        console.log("CandidateList after JSON parse:", candidateList);
-      } catch (e) {
-        console.error("Failed to parse Gemini candidate list:", e);
-        candidateList = [];
+      const candidateList = candidateResult.json;
+      if (!Array.isArray(candidateList) || candidateList.length !== 3) {
+        console.error('Recipe candidate generation returned an invalid candidate count.');
+        return respondError(502, 'Could not generate a complete set of recipe candidates. Please retry.', false);
       }
       // search photo for every candidate
       let enrichedCandidates = [];
@@ -816,13 +994,9 @@ ${restrictionHandlingInstructions}
 
 Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
     // Call Gemini Text API
-    const recipeResp = await fetch(GEMINI_TEXT_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY
-      },
-      body: JSON.stringify({
+    const recipeResult = await callGemini(
+      GEMINI_TEXT_ENDPOINT,
+      {
         contents: [
           {
             parts: [
@@ -833,17 +1007,16 @@ Start directly with the <h1> title. Ensure the entire output is valid HTML.`;
           }
         ],
         generationConfig: {
-          maxOutputTokens: 2048
+          maxOutputTokens: 4096,
+          temperature: 0.4,
         }
-      })
-    });
-    if (!recipeResp.ok) {
-      const errText = await recipeResp.text();
-      console.error("Recipe API error:", errText);
-      return respondError(502, "Failed to generate recipe. Please try again later.", false);
+      },
+      'Recipe generation',
+    );
+    if (!recipeResult.ok) {
+      return respondGeminiFailure(recipeResult, 'Failed to generate recipe. Please try again later.');
     }
-    const recipeData = await recipeResp.json();
-    const rawRecipeHtml = recipeData?.candidates?.[0]?.content?.parts?.[0]?.text || "<p>Error: Could not generate recipe content.</p>";
+    const rawRecipeHtml = recipeResult.text;
     const recipeHtml = sanitizeHtml(rawRecipeHtml, {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat([
         "h1",

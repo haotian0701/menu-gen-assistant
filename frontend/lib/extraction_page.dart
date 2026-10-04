@@ -289,7 +289,6 @@ class ExtractionController extends ChangeNotifier {
   List<Map<String, dynamic>>? _detectedItems;
   bool _isLoading = true;
   String? _errorMessage;
-  int _retryCount = 0;
   bool _disposed = false;
 
   // State variables for dropdowns
@@ -564,10 +563,7 @@ class ExtractionController extends ChangeNotifier {
 
       if (resp.statusCode != 200) {
         final parsed = parseErrorResponse(resp.statusCode, resp.body);
-        final msg = parsed.userError
-            ? parsed.message
-            : 'Unexpected error occurred. Please try again.';
-        _setErrorMessage(msg);
+        _setErrorMessage(parsed.message);
         _setLoading(false);
         return;
       }
@@ -580,23 +576,12 @@ class ExtractionController extends ChangeNotifier {
               (it) => it['bounding_box'] is Map || it['bounding_box'] == null)
           .toList();
 
-      if (filtered.isEmpty && _retryCount < 1) {
-        _retryCount++;
-        debugPrint('No items detected—retrying extraction (#$_retryCount)');
-        return _fetchDetectedItems();
-      }
-
       _setDetectedItems(filtered);
       _setLoading(false);
     } catch (e) {
       if (_disposed) return;
 
       debugPrint('Error fetching items: $e');
-      if (_retryCount < 1) {
-        _retryCount++;
-        debugPrint('Error fetching items, retrying (#$_retryCount): $e');
-        return _fetchDetectedItems();
-      }
       _setLoading(false);
       _setErrorMessage('Network error – please check your connection and try again.');
     }
@@ -604,7 +589,6 @@ class ExtractionController extends ChangeNotifier {
 
   void retryFetch() {
     if (_disposed) return;
-    _retryCount = 0;
     _fetchDetectedItems();
   }
 
